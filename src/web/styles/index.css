@@ -1,0 +1,9 @@
+/* 样式按界面区域分文件；手机的覆盖规则放最后 */
+@import './base.css';
+@import './layout.css';
+@import './board.css';
+@import './items.css';
+@import './links.css';
+@import './overlays.css';
+@import './sketch.css';
+@import './mobile.css';

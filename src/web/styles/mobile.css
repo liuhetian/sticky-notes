@@ -1,0 +1,28 @@
+/* ── 手机：标签横排，白板变成按时间倒序的卡片流 ── */
+@media (max-width: 760px) {
+  .shell { flex-direction: column; }
+  .side { width: auto; flex-direction: row; align-items: center; gap: 6px; padding: 8px 10px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+  .brand { padding: 0 4px; font-size: 19px; }
+  .brand-name, .new-board span, .side-link span, .ib.side-toggle { display: none; }
+  .tabs { flex: none; flex-direction: row; overflow: visible; }
+  .tab { padding: 6px 12px; white-space: nowrap; }
+  .tab-x { display: none !important; }
+  .new-board { margin: 0; padding: 6px 10px; }
+  .trash-tab { flex: none; margin: 0; padding: 6px 12px; border-top: 0; border-left: 1px dashed var(--line); border-radius: 0 10px 10px 0; white-space: nowrap; }
+  .side-link { padding: 6px 8px; }
+  .title-float { top: 8px; left: 10px; padding: 4px 12px; }
+  .title-float .board-title { font-size: 17px; }
+  .sketch { inset: 0; border-radius: 0; }
+  .sizer { width: auto !important; height: auto !important; }
+  .canvas { position: relative; transform: none !important; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 22px 16px; align-items: start; width: auto !important; height: auto !important; padding: 64px 14px 120px; }
+  .item { position: relative; left: auto !important; top: auto !important; width: auto !important; transform: none !important; touch-action: auto; user-select: text; -webkit-user-select: text; }
+  .item:hover { box-shadow: var(--shadow); }
+  .item.spotlight { animation: spot-in-m .75s cubic-bezier(.2, 1.3, .4, 1), spot-ring 1.2s .75s ease-out infinite; }
+  @keyframes spot-in-m { from { scale: 1.25; } }
+  .bar { position: static; justify-content: flex-end; flex-wrap: wrap; margin: -10px -8px 8px 0; padding: 0; background: transparent; box-shadow: none; opacity: 1; pointer-events: auto; transform: none !important; }
+  .bar::after { display: none; }
+  .fab { position: fixed; z-index: 50; right: 18px; bottom: calc(20px + env(safe-area-inset-bottom)); display: grid; place-items: center; width: 56px; height: 56px; border: 0; border-radius: 50%; background: var(--ink); color: #fff; box-shadow: 0 8px 22px rgba(0, 0, 0, .28); }
+  .fab .ic svg { width: 26px; height: 26px; }
+  .empty-big { padding: 20px 30px; font-size: 26px; }
+  .conflict-cols { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,25 @@
+/* ── 连线：手画感的曲线，中间绕一个小圈。画在卡片底下；接在图片某个点上的那一头，在卡片上面再补画一小段 ── */
+.links { position: absolute; left: 0; top: 0; z-index: 0; overflow: visible; pointer-events: none; }
+.links path { fill: none; }
+.link .hit { stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
+.link .ln { stroke: #a2957a; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: stroke .15s; }
+.link .end { fill: #a2957a; transition: fill .15s; }
+.link .end.anchored { fill: #fff; stroke: #a2957a; stroke-width: 2; }
+.link:hover .ln, .link.on .ln { stroke: var(--accent); stroke-width: 2.5; }
+.link:hover .end, .link.on .end { fill: var(--accent); }
+.link:hover .end.anchored, .link.on .end.anchored { fill: #fff; stroke: var(--accent); }
+.ln.temp { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 5; stroke-linecap: round; }
+/* 盖在卡片上面的那一层：线压在照片上，垫一圈白边才看得清 */
+/* 比鼠标悬停的卡片（9000）高、比高亮（9500）和拖动中的卡片（9999）低 */
+.links-top { z-index: 9100; }
+.links-top .ln.halo { stroke: rgba(255, 255, 255, .85); stroke-width: 5; }
+.links-top .ln { stroke: #8a7c60; }
+.links-top .end.on-photo { fill: #8a7c60; stroke: #fff; stroke-width: 2; }
+.links-top .link.on .ln:not(.halo) { stroke: var(--accent); }
+.links-top .link.on .end.on-photo { fill: var(--accent); stroke: #fff; }
+.link-x { position: absolute; z-index: 9700; display: grid; place-items: center; width: 24px; height: 24px; margin: -12px 0 0 -12px; padding: 0; border: 0; border-radius: 50%; background: #fff; color: #b83a2e; font-size: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, .18), 0 0 0 1.5px var(--accent); }
+.link-x:hover { background: #fdeeec; }
+.link-hint { position: absolute; z-index: 40; left: 50%; top: 14px; transform: translateX(-50%); padding: 7px 14px; border-radius: 10px; background: var(--ink); color: #fff; font-size: 14px; white-space: nowrap; pointer-events: none; box-shadow: 0 6px 18px rgba(0, 0, 0, .2); }
+.link-hint kbd { margin-left: 6px; background: rgba(255, 255, 255, .15); border-color: rgba(255, 255, 255, .3); color: #fff; }
+.stage.linking .canvas, .stage.linking .item, .stage.linking .item * { cursor: crosshair !important; }
+.stage.linking .item:hover { outline: 2px dashed var(--accent); outline-offset: 5px; }

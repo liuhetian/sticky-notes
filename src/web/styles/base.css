@@ -1,0 +1,35 @@
+:root {
+  --paper: #f5f2ea;
+  --side: #fbfaf6;
+  --ink: #2d2a25;
+  --muted: #8b8579;
+  --line: #e7e1d5;
+  --accent: #d9822b;
+  --shadow: 0 1px 2px rgba(60, 45, 20, .06), 0 8px 22px rgba(60, 45, 20, .10);
+  --shadow-up: 0 3px 6px rgba(60, 45, 20, .08), 0 20px 44px rgba(60, 45, 20, .18);
+  --yellow: #fff2a8; --pink: #ffdbe4; --blue: #d6ebff; --green: #dbf4d3; --purple: #e9e0fe; --orange: #ffe2bf;
+  font-family: 'LXGW WenKai Screen', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+html, body, #app { margin: 0; height: 100%; background: var(--paper); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.ic { display: inline-flex; }
+.ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.splash { height: 100%; display: grid; place-items: center; font-size: 40px; animation: breathe 1.4s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: .4; transform: scale(.92); } }
+
+/* ── 登录 ── */
+.login-page { height: 100%; display: grid; place-items: center; padding: 24px; background: radial-gradient(#d8cfbd 1.2px, transparent 1.4px) 0 0 / 24px 24px, var(--paper); }
+.login-card { position: relative; width: min(88vw, 340px); padding: 38px 28px 24px; text-align: center; background: var(--yellow); border-radius: 3px 3px 18px 3px; box-shadow: var(--shadow-up); transform: rotate(-1.4deg); }
+.login-card::before { content: ''; position: absolute; top: -11px; left: 50%; width: 88px; height: 24px; margin-left: -44px; background: rgba(255, 255, 255, .6); box-shadow: 0 1px 2px rgba(0, 0, 0, .06); transform: rotate(-3deg); }
+.login-pin { font-size: 34px; line-height: 1; }
+.login-card h1 { margin: 8px 0 2px; font-size: 30px; letter-spacing: 2px; }
+.login-sub { margin: 0 0 22px; color: #8a7b4f; }
+.login-card input { width: 100%; padding: 11px 14px; font-size: 16px; outline: none; border: 1.5px solid rgba(0, 0, 0, .12); border-radius: 10px; background: rgba(255, 255, 255, .7); }
+.login-card input:focus { border-color: var(--accent); background: #fff; }
+.login-card button { width: 100%; margin-top: 12px; padding: 11px; font-size: 16px; letter-spacing: 4px; border: 0; border-radius: 10px; background: var(--ink); color: #fff; }
+.login-err { min-height: 1.4em; margin: 10px 0 0; color: #c0392b; }

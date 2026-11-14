@@ -1,0 +1,20 @@
+/* ── 画布编辑器 ── */
+.sketch { position: fixed; z-index: 25000; inset: 3vh 3vw; display: flex; flex-direction: column; overflow: hidden; border-radius: 16px; background: #f7f4ec; box-shadow: 0 30px 80px rgba(0, 0, 0, .3); outline: none; }
+.sketch-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--side); }
+.sk-group { display: flex; align-items: center; gap: 5px; }
+.sk-end { margin-left: auto; gap: 8px; }
+.sk-color { width: 24px; height: 24px; padding: 0; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, .18); }
+.sk-color.on { box-shadow: 0 0 0 2px var(--ink); }
+.sk-size { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: none; }
+.sk-size i { display: block; border-radius: 50%; background: var(--ink); }
+.sk-size.on, .sk-size:hover { background: #ece6d8; }
+.sk-btn { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 9px; background: none; color: #5d574b; }
+.sk-btn:hover:not(:disabled) { background: #ece6d8; color: var(--ink); }
+.sk-btn.on { background: var(--ink); color: #fff; }
+.sk-btn:disabled { opacity: .35; cursor: default; }
+.sketch-stage { flex: 1; min-height: 0; display: grid; place-items: center; background: radial-gradient(#ddd5c4 1px, transparent 1.2px) 0 0 / 20px 20px; }
+.sketch-paper { position: relative; border-radius: 4px; background: #fff; box-shadow: var(--shadow-up); }
+.sketch-paper canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 4px; }
+.sketch-paper .ink { touch-action: none; cursor: crosshair; }
+.sketch-paper .ink.erasing { cursor: cell; }
+.sketch-loading { color: var(--muted); }

@@ -1,0 +1,45 @@
+// 默认三块白板的图标：共用（两个人）、牛牛（奶牛）、香蕉；自己新建的白板用彩色色块
+const Shared = () => (
+  <svg viewBox="0 0 32 32" aria-hidden>
+    <circle cx="11.5" cy="11" r="4.6" fill="#7db8f0" />
+    <path d="M3.5 25.5c0-5.6 3.6-8.3 8-8.3s8 2.7 8 8.3z" fill="#7db8f0" />
+    <circle cx="21.6" cy="12.2" r="4.1" fill="#f3ab5a" />
+    <path d="M14.8 26c.5-4.6 3.2-7.2 6.8-7.2 4 0 7.1 2.6 7.1 7.2z" fill="#f3ab5a" />
+    <circle cx="10" cy="10.4" r=".9" fill="#fff" opacity=".7" />
+  </svg>
+);
+
+const Cow = () => (
+  <svg viewBox="0 0 32 32" aria-hidden>
+    <path d="M8.2 9.6C6 7.4 5.6 5 6.6 3.4c.9 2.2 2.6 3.7 4.8 4.6z" fill="#efe3c8" stroke="#8a7a5c" strokeWidth=".8" />
+    <path d="M23.8 9.6c2.2-2.2 2.6-4.6 1.6-6.2-.9 2.2-2.6 3.7-4.8 4.6z" fill="#efe3c8" stroke="#8a7a5c" strokeWidth=".8" />
+    <ellipse cx="5" cy="13.2" rx="4" ry="2.3" fill="#3d3a36" transform="rotate(-18 5 13.2)" />
+    <ellipse cx="27" cy="13.2" rx="4" ry="2.3" fill="#3d3a36" transform="rotate(18 27 13.2)" />
+    <path d="M7.6 11C9.6 7.6 22.4 7.6 24.4 11c1.6 3.4 1.2 8.4-1.2 11.2H8.8C6.4 19.4 6 14.4 7.6 11z" fill="#fff" stroke="#3d3a36" strokeWidth="1.3" />
+    <path d="M9.4 10.2c1.6-1.6 4.4-1.4 5.2.8.4 1.8-1.2 3.4-3.2 3.2-1.8-.2-2.8-2.4-2-4z" fill="#3d3a36" />
+    <path d="M20.6 9.2c1.2-.4 2.6.2 2.8 1.4.1.9-.8 1.6-1.8 1.4-1-.2-1.8-1.9-1-2.8z" fill="#3d3a36" />
+    <circle cx="12.4" cy="15.4" r="1.25" fill="#2d2a25" />
+    <circle cx="19.6" cy="15.4" r="1.25" fill="#2d2a25" />
+    <ellipse cx="16" cy="22.6" rx="7.2" ry="4.6" fill="#f7b8c6" stroke="#3d3a36" strokeWidth="1.3" />
+    <ellipse cx="13.4" cy="22.6" rx="1.1" ry="1.5" fill="#3d3a36" />
+    <ellipse cx="18.6" cy="22.6" rx="1.1" ry="1.5" fill="#3d3a36" />
+  </svg>
+);
+
+const Banana = () => (
+  <svg viewBox="0 0 32 32" aria-hidden>
+    <path d="M7.4 6.6C4.6 17.4 11.6 27.6 22.8 26.4c3.4-.4 5.4-1.8 5.9-3.4-3.6.9-8.6.6-13-2.9C11.4 16.6 9.6 12 9.4 7z" fill="#f7d44c" stroke="#b8891c" strokeWidth="1.2" strokeLinejoin="round" />
+    <path d="M10.2 11.6c1.8 5.6 5.4 9.4 12.6 11.2" fill="none" stroke="#e2b42e" strokeWidth="1.1" strokeLinecap="round" />
+    <path d="M9.4 7 8.6 4c-.2-.7-1.3-.6-1.4.1L7.4 6.6z" fill="#7a5a1c" />
+    <path d="m28.7 23 1.2-.3c.5-.1.5-.9 0-1l-1.2.1z" fill="#5c4314" />
+    <path d="M13 17.6c.4.6.9 1.1 1.4 1.6" stroke="#fff" strokeWidth="1" strokeLinecap="round" opacity=".55" />
+  </svg>
+);
+
+const ICONS: Record<string, () => React.JSX.Element> = { 共用: Shared, 牛牛: Cow, 香蕉: Banana };
+
+export function BoardIcon({ name, index }: { name: string; index: number }) {
+  const Svg = ICONS[name];
+  if (Svg) return <span className="board-icon">{Svg()}</span>;
+  return <span className={`dot c${index % 6}`} data-ch={[...name][0]} />;
+}
