@@ -1,8 +1,9 @@
 // 显示上传的图片。iPhone 照片是 HEIC：Safari 能直接显示，其他浏览器显示失败时按需加载 heic2any 转成 JPEG
 import { useState, type ImgHTMLAttributes } from 'react';
+import type { FileRef } from '@/shared/schema';
 import { fileUrl, rawUrl } from '../../api/client';
 
-type FileKey = { id: string; name: string };
+type FileKey = Pick<FileRef, 'id' | 'name'>;
 const converted = new Map<string, Promise<string>>();
 const isHeic = (name: string) => /\.(heic|heif)$/i.test(name);
 
@@ -26,14 +27,16 @@ function convertHeic(file: FileKey) {
   return p;
 }
 
-export function FileImage({ file, ...props }: { file: FileKey } & Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'>) {
+/** 显示不了时（HEIC 也转不成）：调用方给了 onError 就交给它，否则显示一句说明 */
+export function FileImage({ file, onError, ...props }: { file: FileKey; onError?: () => void } & Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'onError'>) {
   const [src, setSrc] = useState(fileUrl(file));
   const [failed, setFailed] = useState(false);
+  const fail = () => (onError ? onError() : setFailed(true));
   if (failed) return <div className="img-failed">{file.name}<br />这个浏览器显示不了，下载看吧</div>;
   return (
     <img {...props} src={src} alt={props.alt ?? file.name} onError={() => {
-      if (!isHeic(file.name) || src.startsWith('blob:')) return setFailed(true);
-      convertHeic(file).then(setSrc, () => setFailed(true));
+      if (!isHeic(file.name) || src.startsWith('blob:')) return fail();
+      convertHeic(file).then(setSrc, fail);
     }} />
   );
 }

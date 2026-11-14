@@ -14,7 +14,6 @@ export const Board = z.object({
   id: BoardId,
   name: z.string().min(1).max(40),
   createdAt: z.number(),
-  trash: z.boolean().optional(),
 });
 export type Board = z.infer<typeof Board>;
 
@@ -88,6 +87,8 @@ export const CreateItem = z.discriminatedUnion('type', [
   z.object({ type: z.literal('location'), lat: Lat, lng: Lng, name: PlaceName.default(''), ...Place }),
 ]);
 export type CreateItem = z.input<typeof CreateItem>;
+/** 校验后（补上默认值）的新建请求 */
+export type CreateItemBody = z.output<typeof CreateItem>;
 
 export const PatchItem = z.strictObject({
   x: Coord.optional(),
@@ -108,12 +109,10 @@ export type PatchItem = z.infer<typeof PatchItem>;
 export const BoardName = z.object({ name: z.string().trim().min(1).max(40) });
 /** 从废纸篓放回时可以带 ttl（按默认保留时长重新计时）或 expiresAt（撤销删除：恢复原来的到期时间） */
 export const MoveItem = z.object({ to: BoardId.optional(), ttl: Ttl.optional(), expiresAt: z.number().nullable().optional() });
+export type MoveItem = z.infer<typeof MoveItem>;
 export const Login = z.object({ password: z.string().min(1) });
-export const UploadRequest = z.object({
-  name: z.string().min(1).max(200),
-  size: z.number().int().min(1).max(MAX_FILE),
-  mime: z.string().max(100).default(''),
-});
+/** 领上传地址时先报大小，太大的直接挡掉；实际大小在建元素时再核对一次 */
+export const UploadRequest = z.object({ size: z.number().int().min(1).max(MAX_FILE) });
 
 // 快捷指令用：白板可以填 id，也可以直接填名字（共用、牛牛、香蕉）
 export const ShareText = z.object({ board: z.string().min(1).max(40), text: z.string().min(1).max(MAX_TEXT) });

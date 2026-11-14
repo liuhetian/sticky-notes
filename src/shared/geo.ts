@@ -86,7 +86,8 @@ export function gcj02ToWgs84(p: LatLng): LatLng {
 
 export type Place = LatLng & { name: string };
 
-const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
+/** 坐标保留 6 位小数（约 0.1 米），再多没有意义 */
+export const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
 const decode = (s: string) => { try { return decodeURIComponent(s.replace(/\+/g, ' ')); } catch { return ''; } };
 const validSpot = (lat: number, lng: number) => Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
 

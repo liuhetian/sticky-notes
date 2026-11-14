@@ -2,14 +2,13 @@
 //   boards.json                               白板列表（很少改，整个文档存）
 //   items/<boardId>/<itemId>.json             每个元素一个对象，改不同元素的人互不覆盖
 //   reminders/<remindAt>-<boardId>-<itemId>   提醒索引，内容全在 key 里，list 一次就够
-// 这一层只管读写，不懂业务（废纸篓、到期、文件都在 services 里）
+// 这一层只管读写，不懂业务（废纸篓、到期、文件都在 services 里）。读一律强一致：在 edge.ts 建 store 时设好
 import { TRASH } from '../../shared/constants';
 import { newBoardId } from '../../shared/ids';
 import type { Board, IndexEntry, Item, Reminder } from '../../shared/schema';
 import type { BlobLike } from '../storage/blob';
 
 const SEED = ['共用', '牛牛', '香蕉'];
-const S = { consistency: 'strong' } as const;
 const itemKey = (boardId: string, id: string) => `items/${boardId}/${id}.json`;
 const reminderKey = (r: Reminder) => `reminders/${String(r.remindAt).padStart(13, '0')}-${r.boardId}-${r.itemId}`;
 /** 废纸篓里的不提醒 */
@@ -21,12 +20,12 @@ export class Db {
 
   // ── 白板 ──
   async boards(): Promise<Board[]> {
-    const doc: { boards: Board[] } | null = await this.blob.get('boards.json', { type: 'json', ...S });
+    const doc: { boards: Board[] } | null = await this.blob.get('boards.json', { type: 'json' });
     if (doc) return doc.boards;
     const now = Date.now();
     const boards: Board[] = [
       ...SEED.map((name, i) => ({ id: newBoardId(), name, createdAt: now + i })),
-      { id: TRASH, name: '废纸篓', trash: true, createdAt: now },
+      { id: TRASH, name: '废纸篓', createdAt: now },
     ];
     await this.saveBoards(boards);
     return boards;
@@ -47,17 +46,17 @@ export class Db {
   // ── 元素 ──
   async index(boardId: string): Promise<IndexEntry[]> {
     const prefix = `items/${boardId}/`;
-    const { blobs } = await this.blob.list({ prefix, ...S });
+    const { blobs } = await this.blob.list({ prefix });
     return blobs.map((b) => ({ id: b.key.slice(prefix.length, -'.json'.length), etag: b.etag }));
   }
 
   getItem(boardId: string, id: string): Promise<Item | null> {
-    return this.blob.get(itemKey(boardId, id), { type: 'json', ...S });
+    return this.blob.get(itemKey(boardId, id), { type: 'json' });
   }
 
-  async getItems(boardId: string, ids?: string[]): Promise<Item[]> {
-    const wanted = ids ?? (await this.index(boardId)).map((e) => e.id);
-    return (await Promise.all(wanted.map((id) => this.getItem(boardId, id)))).filter((x): x is Item => !!x);
+  /** 一次读这几个；调用方负责分批（一次执行读不了太多） */
+  async getItems(boardId: string, ids: string[]): Promise<Item[]> {
+    return (await Promise.all(ids.map((id) => this.getItem(boardId, id)))).filter((x): x is Item => !!x);
   }
 
   /** prev 是这个元素写之前的样子（没有就是新建），用来同步提醒索引 */
@@ -79,22 +78,20 @@ export class Db {
 
   /** 分享链接只带元素 id：list 一次 items/，找到它在哪块白板 */
   async locate(id: string): Promise<string | null> {
-    const { blobs } = await this.blob.list({ prefix: 'items/', ...S });
-    const hit = blobs.find((b) => b.key.endsWith(`/${id}.json`));
-    return hit ? hit.key.split('/')[1] : null;
+    return (await this.everything()).find((e) => e.id === id)?.boardId ?? null;
   }
 
   /** 全站所有元素在哪（只列名字，一次请求），按元素 id 排好：清理任务按这个顺序一批批过 */
   async everything(): Promise<{ boardId: string; id: string }[]> {
-    const { blobs } = await this.blob.list({ prefix: 'items/', ...S });
+    const { blobs } = await this.blob.list({ prefix: 'items/' });
     return blobs.flatMap((b) => {
-      const m = b.key.match(/^items\/([^/]+)\/([0-9a-f]{16})\.json$/);
+      const m = b.key.match(/^items\/([^/]+)\/([^/]+)\.json$/);
       return m ? [{ boardId: m[1], id: m[2] }] : [];
     }).sort((a, b) => a.id.localeCompare(b.id));
   }
 
   // ── 清理任务跨批次要记的东西 ──
-  scratch<T>(): Promise<T | null> { return this.blob.get('cleanup/state.json', { type: 'json', ...S }); }
+  scratch<T>(): Promise<T | null> { return this.blob.get('cleanup/state.json', { type: 'json' }); }
   saveScratch(v: unknown) { return this.blob.setJSON('cleanup/state.json', v); }
   dropScratch() { return this.blob.delete('cleanup/state.json'); }
 
@@ -107,7 +104,7 @@ export class Db {
   }
 
   async reminders(): Promise<Reminder[]> {
-    const { blobs } = await this.blob.list({ prefix: 'reminders/', ...S });
+    const { blobs } = await this.blob.list({ prefix: 'reminders/' });
     return blobs.flatMap((b) => {
       const m = b.key.match(/^reminders\/(\d{13})-([0-9a-z]+)-([0-9a-f]{16})$/);
       return m ? [{ remindAt: Number(m[1]), boardId: m[2], itemId: m[3] }] : [];

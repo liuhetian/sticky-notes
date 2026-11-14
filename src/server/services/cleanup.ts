@@ -3,6 +3,7 @@
 // 谁来一次次调：每天的定时任务推一批，页面打开时接着调到做完（边缘函数自己请求自己的域名会被平台回 404，没法自己接力）
 import { DAY, TRASH, isAlive } from '../../shared/constants';
 import { fileIdTime } from '../../shared/ids';
+import { isFileLike } from '../../shared/items';
 import type { Ctx } from '../env';
 import { expire, fileIdsOf, purge } from './items';
 
@@ -28,7 +29,7 @@ export async function cleanup(ctx: Ctx, now = Date.now()): Promise<CleanupStats 
       const it = await db.getItem(all[i].boardId, all[i].id);
       if (!it) continue;
       // 快捷指令建了「上传中」的卡片，文件却一天都没传上来
-      const stale = (it.type === 'image' || it.type === 'file') && it.pending && now - it.createdAt > DAY && (await files.size(it.file.id)) === null;
+      const stale = isFileLike(it) && it.pending && now - it.createdAt > DAY && (await files.size(it.file.id)) === null;
       if (stale) { await purge(ctx, it); s.stats.stalePending++; changes++; gone++; continue; }
       if (!isAlive(it, now)) {
         await expire(ctx, it);

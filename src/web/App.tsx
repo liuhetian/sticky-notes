@@ -1,12 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { TRASH } from '@/shared/constants';
-import type { Item, Reminder } from '@/shared/schema';
+import { TRASH, fileKind } from '@/shared/constants';
+import type { Item } from '@/shared/schema';
 import { api, authLost, unwrap } from './api/client';
 import { Login } from './features/auth/Login';
-import { BoardView, type BoardApi } from './features/board/Board';
-import { PlusMenu } from './features/board/CreateMenu';
+import { BoardView } from './features/board/Board';
 import { ConflictDialog } from './features/dialogs/ConflictDialog';
 import { Guide } from './features/dialogs/Guide';
 import { Lightbox } from './features/dialogs/Lightbox';
@@ -14,12 +13,11 @@ import { DocViewer } from './features/preview/DocViewer';
 import { useReminders } from './features/reminders/useReminders';
 import { useShareLink } from './features/share/useShareLink';
 import { Sidebar } from './features/sidebar/Sidebar';
-import { kindForUpload, useUploader } from './features/upload/useUploader';
-import { useMobile } from './lib/hooks';
+import { useUploader } from './features/upload/useUploader';
 import { useDailyCleanup } from './state/cleanup';
 import { useActions } from './state/actions';
-import { qk, useBoards, useItems } from './state/queries';
-import { jumpStore, spotlight } from './state/stores';
+import { qk, useBoards } from './state/queries';
+import { boardStore, jumpStore, spotlight } from './state/stores';
 import { Logo } from './ui/Logo';
 
 export function App() {
@@ -40,34 +38,17 @@ function Main() {
   const qc = useQueryClient();
   const { data: boards } = useBoards();
   const actions = useActions();
-  const mobile = useMobile();
-  const boardApi = useRef<BoardApi>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
-  // 当前在哪块白板只记在本机，不进地址栏
-  const [boardId, setBoardId] = useState<string | null>(() => localStorage.getItem('clip.board'));
-
-  const switchBoard = useCallback((id: string) => {
-    setBoardId(id);
-    localStorage.setItem('clip.board', id);
-  }, []);
+  const boardId = boardStore.use();
   useShareLink(!!boards);
 
   const upload = useUploader(useCallback((bid, file, meta) =>
-    actions.create(bid, { type: kindForUpload(file.name, file.mime), file, x: meta.x, y: meta.y, ttl: meta.ttl }), [actions]));
+    actions.create(bid, { type: fileKind(file.name), file, x: meta.x, y: meta.y, ttl: meta.ttl }), [actions]));
 
-  const markDone = async (r: Reminder) => {
-    const it = qc.getQueryData<Item[]>(qk.items(r.boardId))?.find((x) => x.id === r.itemId);
-    if (it) await actions.patch(r.boardId, it, { remindDone: true });
-    else {
-      await unwrap(api.boards[':id'].items[':itemId'].$patch({ param: { id: r.boardId, itemId: r.itemId }, json: { remindDone: true } })).catch(() => {});
-      qc.invalidateQueries({ queryKey: qk.reminders });
-    }
-  };
   useDailyCleanup(!!boards);
-  useReminders(boards ?? [], (r) => { switchBoard(r.boardId); spotlight(r.itemId); }, markDone);
+  useReminders(boards ?? [], (r) => { boardStore.set(r.boardId); spotlight(r.itemId); }, actions.ackReminder);
 
   const current = boards?.find((b) => b.id === boardId) ?? boards?.find((b) => b.id !== TRASH);
-  const { data: items, isError } = useItems(current?.id);
 
   // 跳到某个元素（分享链接、便利贴里的引用）：就在眼前这块白板上直接高亮，否则先问服务端在哪块白板
   const jump = jumpStore.use();
@@ -77,39 +58,24 @@ function Main() {
     const { itemId: id, dim } = jump;
     if (current && current.id !== TRASH && qc.getQueryData<Item[]>(qk.items(current.id))?.some((x) => x.id === id)) { spotlight(id, dim); return; }
     unwrap<{ boardId: string }>(api.items[':id'].locate.$get({ param: { id } }))
-      .then(({ boardId }) => { switchBoard(boardId); spotlight(id, dim); })
+      .then(({ boardId: found }) => { boardStore.set(found); spotlight(id, dim); })
       .catch(() => toast.error('这条已经过期或被删了'));
-  }, [jump]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [jump]);
   if (!boards || !current) return <div className="splash"><Logo /></div>;
   const inTrash = current.id === TRASH;
 
   return (
     <div className="shell">
-      <Sidebar boards={boards} current={current.id} onSwitch={switchBoard} actions={actions}
+      <Sidebar boards={boards} current={current.id} onSwitch={boardStore.set} actions={actions}
         renaming={renaming} setRenaming={setRenaming}
         onLogout={async () => { await unwrap(api.logout.$post()).catch(() => {}); location.reload(); }} />
       <section className="main">
-        <BoardView key={current.id} board={current} boards={boards} actions={actions} upload={upload} apiRef={boardApi} />
+        <BoardView key={current.id} board={current} boards={boards} actions={actions} upload={upload} />
         {/* 没有顶栏：白板名字浮在画布左上角 */}
         <div className="title-float">
           <h1 className="board-title" title={inTrash ? undefined : '双击改名'} onDoubleClick={() => !inTrash && setRenaming(current.id)}>{current.name}</h1>
-          {!!items?.length && <span className="count">{items.length} 项</span>}
-          <span className={isError ? 'sync err' : 'sync ok'} title={isError ? '同步失败' : '已同步'} />
         </div>
-        {/* 电脑上「+」和「清空废纸篓」在底部操作栏的最后；手机没有操作栏，清空放右上角 */}
-        {mobile && inTrash && (
-          <div className="corner-float">
-            <button type="button" className="btn danger" onClick={() => {
-              if (!items?.length) return;
-              if (confirm(`彻底删除废纸篓里的 ${items.length} 项？删了就找不回来了`)) actions.clearTrash();
-            }}>清空废纸篓</button>
-          </div>
-        )}
       </section>
-      {mobile && !inTrash && (
-        <PlusMenu className="fab" side="top" onNote={() => boardApi.current?.startDraft()} onSketch={() => boardApi.current?.startSketch()}
-          onFile={() => boardApi.current?.pickFiles()} onLocation={() => boardApi.current?.startLocation()} />
-      )}
       <Lightbox />
       <DocViewer />
       <ConflictDialog actions={actions} />

@@ -1,4 +1,5 @@
 // 线上冒烟：npm run smoke。跑完把自己建的测试数据彻底删掉
+import { newId } from '../src/shared/ids';
 import { BASE, siteClient, sitePassword } from './lib/site';
 
 const call = await siteClient();
@@ -40,7 +41,7 @@ const share = boards[0].id;
 const first = boards[0].name;
 
 // 元素：建（id 由前端定）、按字段合并、冲突、增量同步
-const id = [...crypto.getRandomValues(new Uint8Array(8))].map((b) => b.toString(16).padStart(2, '0')).join('');
+const id = newId();
 const note = (await call('POST', `/boards/${share}/items`, { id, type: 'note', text: '冒烟测试\n- [ ] 一', x: 100, y: 100, ttl: 600 })).data;
 created.push(note.id);
 check('建便利贴（id 由前端定）', note.id === id && note.rev === 1 && note.color === 'yellow');
@@ -70,7 +71,7 @@ check('放回原处、恢复到期时间', back.to === share && back.item.expire
 check('废纸篓不能直接贴', (await call('POST', '/boards/trash/items', { type: 'note', text: 'x', x: 1, y: 1 })).status === 400);
 
 // 上传：文件直接进 COS
-const up = (await call('POST', '/uploads', { name: 'smoke.png', size: PNG.length, mime: 'image/png' })).data;
+const up = (await call('POST', '/uploads', { size: PNG.length })).data;
 check('上传地址在 COS', /^https:\/\/[^/]+\.cos\.[^/]+\.myqcloud\.com\/file\//.test(up.url), up.url.split('?')[0]);
 const pre = await fetch(up.url, { method: 'OPTIONS', headers: { Origin: BASE, 'Access-Control-Request-Method': 'PUT', 'Access-Control-Request-Headers': 'content-type' } });
 check('桶允许本站跨域 PUT', pre.headers.get('access-control-allow-origin') === BASE, `${pre.status} ${pre.headers.get('access-control-allow-origin')}`);

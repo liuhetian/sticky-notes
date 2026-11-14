@@ -1,6 +1,6 @@
 // 复制文字、复制图片、触发下载
 import { toast } from 'sonner';
-import { fileUrl } from '../api/client';
+import { downloadUrl } from '../api/client';
 
 export async function copyText(text: string, done = '已复制') {
   try {
@@ -30,7 +30,7 @@ export async function copyImage(src: Promise<string>) {
 }
 
 export function download(file: { id: string; name: string }) {
-  const a = Object.assign(document.createElement('a'), { href: `${fileUrl(file)}?dl=1`, download: file.name });
+  const a = Object.assign(document.createElement('a'), { href: downloadUrl(file), download: file.name });
   document.body.append(a);
   a.click();
   a.remove();

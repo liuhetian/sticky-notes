@@ -8,7 +8,7 @@ import type { Item } from '@/shared/schema';
 import type { Actions } from '../../state/actions';
 import { anchorAt, isLineAnchor, isPointAnchor, type PickAnchor, type PointAnchor } from '../links/anchors';
 import { hasWire, labelOf, makeLink, wiresOf, type Wire } from '../links/model';
-import type { Pos } from './geometry';
+import type { Pos } from '@/shared/layout';
 
 export function useLinking(boardId: string, items: Item[], actions: Actions) {
   const wires = useMemo(() => wiresOf(items), [items]);
@@ -42,9 +42,9 @@ export function useLinking(boardId: string, items: Item[], actions: Actions) {
     setSelected(null);
     const holder = items.find((i) => i.id === w.holder);
     if (!holder) return;
-    // 引用线：把文字里那段 [标题](/id) 删掉
-    if (w.ref) {
-      if (holder.type === 'note') actions.patch(boardId, holder, { text: dropRef(holder.text, w.ref, location.origin), baseRev: holder.rev });
+    // 引用线（只有便利贴有）：把文字里那段 [标题](/id) 删掉
+    if (w.ref && holder.type === 'note') {
+      actions.patch(boardId, holder, { text: dropRef(holder.text, w.ref, location.origin), baseRev: holder.rev });
       return;
     }
     if (holder.links) actions.patch(boardId, holder, { links: holder.links.filter((l) => l.id !== w.key) });

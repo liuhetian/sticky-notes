@@ -25,12 +25,7 @@ async function ensureProject(makers: MakersClient) {
   ];
   let project = await findProject(makers, PROJECT);
   if (!project) {
-    // 站点密码：没单独指定就沿用旧项目 clipboard 的，免得换一个要重新记
-    let password = process.env.SITE_PASSWORD;
-    if (!password) {
-      const old = await findProject(makers, 'clipboard');
-      if (old) password = (await projectEnv(makers, old.projectId)).SITE_PASSWORD;
-    }
+    const password = process.env.SITE_PASSWORD;
     if (!password) throw new Error('新建项目要有站点密码：在 .env 里写 SITE_PASSWORD');
     const { projectId } = await makers.projects.create({
       name: PROJECT,

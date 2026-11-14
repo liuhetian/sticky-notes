@@ -24,6 +24,8 @@ export interface FileStore {
 
 const PREFIX = 'file/';
 const nowSec = () => Math.floor(Date.now() / 1000);
+/** 当天零点（秒）：从这一刻起签的地址，同一天里都一样，浏览器能按地址缓存 */
+const todaySec = () => Math.floor(Date.now() / DAY) * (DAY / 1000);
 
 export class CosFiles implements FileStore {
   private host: string;
@@ -57,21 +59,19 @@ export class CosFiles implements FileStore {
 
   /** 从当天零点起算、有效两天：同一天里地址不变，浏览器按地址缓存图片 */
   downloadUrl(id: string, d: Disposition) {
-    const today = Math.floor(Date.now() / DAY) * (DAY / 1000);
     return this.presign('GET', id, {
       'response-content-type': d.mime,
       'response-content-disposition': `${d.inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(d.name)}`,
       'response-cache-control': 'private, max-age=86400',
-    }, today, 2 * 86400);
+    }, todaySec(), 2 * 86400);
   }
 
   /** 对象名没有扩展名，srcType 必须带；封面让浏览器缓存一天，免得每次显示都重新转一遍（转一次算一次钱） */
   previewUrl(id: string, srcType: string, as: 'cover' | 'viewer') {
-    const today = Math.floor(Date.now() / DAY) * (DAY / 1000);
     const query: Record<string, string> = as === 'cover'
       ? { 'ci-process': 'doc-preview', srcType, page: '1', dstType: 'jpg', ImageParams: 'imageMogr2/thumbnail/520x/quality/80', 'response-cache-control': 'private, max-age=86400' }
       : { 'ci-process': 'doc-preview', srcType, dstType: 'html' };
-    return this.presign('GET', id, query, today, 2 * 86400);
+    return this.presign('GET', id, query, todaySec(), 2 * 86400);
   }
 
   async size(id: string) {

@@ -1,4 +1,5 @@
 // 测试替身：内存版 Blob（元素数据）和内存版文件存储（COS），外加一个接好它们的 app
+import { BATCH } from '../src/shared/constants';
 import { createApp } from '../src/server/app';
 import { Db } from '../src/server/repo/db';
 import type { BlobLike } from '../src/server/storage/blob';
@@ -59,7 +60,13 @@ export function setup() {
     return { status: res.status, data, res };
   }
   const boardIds = async () => ((await call('GET', '/boards')).data.boards as { id: string }[]).map((b) => b.id);
-  const itemsOf = async (boardId: string) => (await call('GET', `/boards/${boardId}/items`)).data.items as any[];
+  /** 和页面一样：先拿 etags，再按 id 取 */
+  const itemsOf = async (boardId: string) => {
+    const ids = ((await call('GET', `/boards/${boardId}/etags`)).data.items as { id: string }[]).map((e) => e.id);
+    const out: any[] = [];
+    for (let i = 0; i < ids.length; i += BATCH) out.push(...(await call('GET', `/boards/${boardId}/items?ids=${ids.slice(i, i + BATCH).join(',')}`)).data.items);
+    return out;
+  };
   return { blob, files, app, call, boardIds, itemsOf, firstBoard: async () => (await boardIds())[0] };
 }
 

@@ -1,15 +1,14 @@
-/* ── 手机：标签横排，白板变成按时间倒序的卡片流 ── */
+/* ── 手机：标签横排，白板变成按时间倒序的卡片流。断点和 lib/hooks.ts 的 useMobile 一致 ── */
 @media (max-width: 760px) {
   .shell { flex-direction: column; }
   .side { width: auto; flex-direction: row; align-items: center; gap: 6px; padding: 8px 10px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
   .brand { padding: 0 4px; font-size: 19px; }
-  .brand-name, .new-board span, .side-link span, .ib.side-toggle { display: none; }
+  .brand-name, .new-board span, .ib.side-toggle { display: none; }
   .tabs { flex: none; flex-direction: row; overflow: visible; }
   .tab { padding: 6px 12px; white-space: nowrap; }
   .tab-x { display: none !important; }
   .new-board { margin: 0; padding: 6px 10px; }
   .trash-tab { flex: none; margin: 0; padding: 6px 12px; border-top: 0; border-left: 1px dashed var(--line); border-radius: 0 10px 10px 0; white-space: nowrap; }
-  .side-link { padding: 6px 8px; }
   .title-float { top: 8px; left: 10px; padding: 4px 12px; }
   .title-float .board-title { font-size: 17px; }
   .sketch { inset: 0; border-radius: 0; }

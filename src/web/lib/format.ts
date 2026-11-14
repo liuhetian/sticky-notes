@@ -1,12 +1,16 @@
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
-import { INLINE_IMAGE_EXT, extOf, isInlineImage } from '@/shared/constants';
+import { INLINE_IMAGE_EXT, TTL_CHOICES, extOf } from '@/shared/constants';
 import type { Item } from '@/shared/schema';
 import { serverNow } from '../api/client';
 
 dayjs.locale('zh-cn');
 
-export const TTL_LABELS: [number | null, string][] = [[600, '10 分钟'], [3600, '1 小时'], [86400, '1 天'], [604800, '7 天'], [2592000, '30 天'], [null, '永久']];
+/** 保留时长的选项：秒数 → 「10 分钟」「7 天」，最后加一个永久 */
+export const TTL_LABELS: [number | null, string][] = [
+  ...TTL_CHOICES.map((s): [number, string] => [s, s < 3600 ? `${s / 60} 分钟` : s < 86400 ? `${s / 3600} 小时` : `${s / 86400} 天`]),
+  [null, '永久'],
+];
 
 export function fmtSize(n: number) {
   if (n < 1024) return `${n} B`;
@@ -42,11 +46,9 @@ export function rotFor(id: string) {
   return ((Math.abs(h) % 33) - 16) / 10; // -1.6° ~ 1.6°
 }
 
-export { isInlineImage };
-
 export function extClass(name: string) {
   const e = extOf(name);
-  if (INLINE_IMAGE_EXT[e] || ['svg', 'heic', 'tif', 'tiff', 'ico'].includes(e)) return 'img';
+  if (INLINE_IMAGE_EXT[e] || ['svg', 'tif', 'tiff', 'ico'].includes(e)) return 'img';
   if (e === 'pdf') return 'pdf';
   if (['zip', 'rar', '7z', 'tar', 'gz', 'tgz', 'xz', 'bz2'].includes(e)) return 'zip';
   if (['doc', 'docx', 'pages', 'rtf'].includes(e)) return 'doc';

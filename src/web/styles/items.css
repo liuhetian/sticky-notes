@@ -3,11 +3,11 @@
 .item:hover, .item.editing { z-index: 9000 !important; transform: rotate(0deg) translateY(-2px); box-shadow: var(--shadow-up); }
 .item.dragging { z-index: 9999 !important; transform: rotate(0deg) scale(1.03); box-shadow: var(--shadow-up); transition: none; cursor: grabbing; }
 /* 便利贴的宽度跟着内容走：短的还是 240，一行字多了就变宽，最宽 420，再长才换行 */
-.note { width: fit-content; min-width: 240px; max-width: 420px; }
+.note { width: fit-content; min-width: 240px; max-width: 420px; padding: 22px 18px 10px; border-radius: 3px 3px 16px 3px; background: var(--yellow); box-shadow: var(--shadow); cursor: grab; }
 .note.editing { min-width: 340px; }
-.note { padding: 22px 18px 10px; border-radius: 3px 3px 16px 3px; background: var(--yellow); box-shadow: var(--shadow); cursor: grab; }
-.note.pink { background: var(--pink); } .note.blue { background: var(--blue); } .note.green { background: var(--green); }
-.note.purple { background: var(--purple); } .note.orange { background: var(--orange); }
+/* 便利贴的颜色：卡片和冲突弹窗里的预览共用 */
+.note.pink, .note-preview.pink { background: var(--pink); } .note.blue, .note-preview.blue { background: var(--blue); } .note.green, .note-preview.green { background: var(--green); }
+.note.purple, .note-preview.purple { background: var(--purple); } .note.orange, .note-preview.orange { background: var(--orange); }
 .tape { position: absolute; top: -10px; left: 50%; width: 78px; height: 22px; margin-left: -39px; background: rgba(255, 255, 255, .58); box-shadow: 0 1px 2px rgba(0, 0, 0, .06); transform: rotate(-4deg); }
 .md { max-height: 440px; overflow: auto; font-size: 17px; line-height: 1.65; color: #3a3326; word-break: break-word; }
 .md > :first-child { margin-top: 0; }
@@ -64,8 +64,8 @@
 .ib:hover, .ib[data-state='open'] { background: #f2eee5; color: var(--ink); }
 .ib.danger:hover { background: #fde8e5; color: #c0392b; }
 .swatch { width: 18px; height: 18px; margin: 0 2px; padding: 0; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, .14); }
-.swatch.yellow { background: #f6d955; } .swatch.pink { background: #f5a6bc; } .swatch.blue { background: #8cc2f3; }
-.swatch.green { background: #9bd78b; } .swatch.purple { background: #bea8f3; } .swatch.orange { background: #f5b26a; }
+.swatch.yellow { background: var(--yellow-d); } .swatch.pink { background: var(--pink-d); } .swatch.blue { background: var(--blue-d); }
+.swatch.green { background: var(--green-d); } .swatch.purple { background: var(--purple-d); } .swatch.orange { background: var(--orange-d); }
 .swatch.on { box-shadow: 0 0 0 2px var(--ink); }
 .sep { width: 1px; height: 18px; margin: 0 4px; background: var(--line); }
 

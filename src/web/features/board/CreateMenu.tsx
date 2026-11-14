@@ -1,20 +1,17 @@
-// 右键空白处和「+」共用的创建菜单：Radix 的 ContextMenu 和 DropdownMenu 子组件同名，传哪套用哪套。
-// 只管新建；保留时长在设置里配
-import * as ContextMenu from '@radix-ui/react-context-menu';
+// 右键空白处、底部操作栏和手机右下角的「+」共用的创建菜单。只管新建；保留时长在设置里配
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { Icon } from '../../ui/Icon';
+import { MenuRow, type MenuKit } from '../../ui/menu';
 
-type Kit = typeof ContextMenu | typeof DropdownMenu;
 export type CreateHandlers = { onNote: () => void; onSketch: () => void; onFile: () => void; onLocation: () => void };
 
-export function CreateMenuItems({ kit, onNote, onSketch, onFile, onLocation }: { kit: Kit } & CreateHandlers) {
-  const K = kit as typeof DropdownMenu;
+export function CreateMenuItems({ kit, onNote, onSketch, onFile, onLocation }: { kit: MenuKit } & CreateHandlers) {
   return (
     <>
-      <K.Item className="mi" onSelect={onNote}><Icon name="note" /><span>便利贴</span></K.Item>
-      <K.Item className="mi" onSelect={onSketch}><Icon name="brush" /><span>画布</span></K.Item>
-      <K.Item className="mi" onSelect={onFile}><Icon name="clip" /><span>上传文件…</span></K.Item>
-      <K.Item className="mi" onSelect={onLocation}><Icon name="pin" /><span>位置（当前所在）</span></K.Item>
+      <MenuRow kit={kit} icon="note" onSelect={onNote}>便利贴</MenuRow>
+      <MenuRow kit={kit} icon="brush" onSelect={onSketch}>画布</MenuRow>
+      <MenuRow kit={kit} icon="clip" onSelect={onFile}>上传文件…</MenuRow>
+      <MenuRow kit={kit} icon="pin" onSelect={onLocation}>位置（当前所在）</MenuRow>
     </>
   );
 }

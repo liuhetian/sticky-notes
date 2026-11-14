@@ -21,7 +21,7 @@ export const MEDIA_EXT: Record<string, string> = {
 };
 /** 能预览的文档：封面和翻看都由 COS 的文档预览生成，自己不渲染 */
 export const DOC_EXT = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
-export type PreviewKind = 'video' | 'audio' | 'doc';
+type PreviewKind = 'video' | 'audio' | 'doc';
 export function previewKind(name: string): PreviewKind | null {
   const ext = extOf(name);
   if (DOC_EXT.includes(ext)) return 'doc';
@@ -37,7 +37,9 @@ export const FILE_ID_RE = /^[0-9a-z]{6,12}-[0-9a-f]{24}$/;
 export const ITEM_ID_RE = /^[0-9a-f]{16}$/;
 
 export const extOf = (name: string) => (name.includes('.') ? name.split('.').pop()!.toLowerCase() : '');
-export const isInlineImage = (name: string) => !!INLINE_IMAGE_EXT[extOf(name)];
+/** 按扩展名认图片：网页上传、快捷指令、聊天记录拆包都按这一条分图片卡和文件卡 */
+export const imageMime = (name: string) => INLINE_IMAGE_EXT[extOf(name)] ?? '';
+export const fileKind = (name: string): 'image' | 'file' => (imageMime(name) ? 'image' : 'file');
 
 export function expiryFrom(ttl: number | null, now: number): number | null {
   return ttl === null ? null : now + ttl * 1000;

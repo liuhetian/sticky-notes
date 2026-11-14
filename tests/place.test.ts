@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { pickPlaceName } from '../src/shared/geo';
-import { autoPlace, sizeOf } from '../src/server/services/place';
+import { autoPlace } from '../src/server/services/place';
+import { sizeOf } from '../src/shared/layout';
 
 describe('自动挑位置', () => {
   it('空白板放画布中央', () => {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DAY, TRASH_KEEP } from '../src/shared/constants';
+import { BATCH, DAY, MAX_FILE, TRASH_KEEP } from '../src/shared/constants';
 import { newFileId, newId } from '../src/shared/ids';
 import { ENV, note, setup } from './helpers';
 
@@ -171,7 +171,7 @@ describe('废纸篓', () => {
 describe('文件', () => {
   it('领地址、上传、建图片元素；图片 inline 跳到 COS，其他当附件；raw=1 由本站转发', async () => {
     const b = await t.firstBoard();
-    const up = (await t.call('POST', '/uploads', { name: 'a.png', size: 3, mime: 'image/png' })).data;
+    const up = (await t.call('POST', '/uploads', { size: 3 })).data;
     const file = { id: up.id, name: 'a.png', size: 3, mime: 'image/png' };
     expect((await t.call('POST', `/boards/${b}/items`, { type: 'image', file, x: 1, y: 1 })).status).toBe(400); // 还没传
     t.files.upload(up.url, 'PNG');
@@ -191,8 +191,30 @@ describe('文件', () => {
     expect((await t.call('GET', `/files/${up.id}/a.pdf`)).res.headers.get('location')).toContain('inline=false');
     const raw = await t.call('GET', `/files/${up.id}/a.png?raw=1`);
     expect([raw.status, raw.data, raw.res.headers.get('content-type')]).toEqual([200, 'PNG', 'image/png']);
-    expect((await t.call('GET', `/files/${newFileId()}/a.png`)).status).toBe(404);
+    // 跳转前不先问 COS 文件在不在（文件没了由 COS 回 404）；本站转发的才知道
+    expect((await t.call('GET', `/files/${newFileId()}/a.png?raw=1`)).status).toBe(404);
     expect((await t.call('GET', '/files/..%2Fboards.json/a.png')).status).toBe(400);
+  });
+  it('超过 100 MB：领地址时先挡；实际传上来的超了，建元素时拒绝并删掉文件', async () => {
+    const b = await t.firstBoard();
+    expect((await t.call('POST', '/uploads', { size: MAX_FILE + 1 })).status).toBe(400);
+    const up = (await t.call('POST', '/uploads', { size: 3 })).data;
+    t.files.upload(up.url, 'big');
+    const size = vi.spyOn(t.files, 'size').mockResolvedValue(MAX_FILE + 1);
+    const r = await t.call('POST', `/boards/${b}/items`, { type: 'file', file: { id: up.id, name: 'a.bin', size: 3, mime: '' }, x: 1, y: 1 });
+    size.mockRestore();
+    expect([r.status, r.data.error]).toEqual([400, '文件超过 100 MB']);
+    expect(await t.files.size(up.id)).toBeNull();
+    expect(await t.itemsOf(b)).toEqual([]);
+  });
+  it('快捷指令传来的超过 100 MB：「上传中」的卡片连文件一起删掉', async () => {
+    const b = await t.firstBoard();
+    const url = (await t.call('POST', '/share/file', { board: '共用', name: '大视频', ext: 'mov' })).data as string;
+    t.files.upload(url, 'big');
+    const size = vi.spyOn(t.files, 'size').mockResolvedValue(MAX_FILE + 1);
+    expect(await t.itemsOf(b)).toEqual([]);
+    size.mockRestore();
+    expect(t.files.data.size).toBe(0);
   });
 });
 
@@ -363,6 +385,12 @@ describe('每天的清理', () => {
 });
 
 describe('元素很多时分批', () => {
+  it('按 id 取元素必须带 ids，一次最多一批', async () => {
+    const b = await t.firstBoard();
+    expect((await t.call('GET', `/boards/${b}/items`)).status).toBe(400);
+    const ids = Array.from({ length: BATCH + 1 }, () => newId()).join(',');
+    expect((await t.call('GET', `/boards/${b}/items?ids=${ids}`)).status).toBe(400);
+  });
   it('清空废纸篓一次删一批，接着调到删完', async () => {
     const b = await t.firstBoard();
     for (let i = 0; i < 23; i++) {

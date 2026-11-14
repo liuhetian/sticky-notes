@@ -96,7 +96,7 @@ export async function enrichLocation(actions: Actions, boardId: string, item: Lo
   let thumb;
   if (blob) {
     const file = `map-${fmtCoords(item)}.jpg`;
-    thumb = await putFile(blob, file).then((id) => ({ id, name: file, size: blob.size, mime: 'image/jpeg' }), () => undefined);
+    thumb = await putFile(blob).then((id) => ({ id, name: file, size: blob.size, mime: 'image/jpeg' }), () => undefined);
   }
   if (!name && !thumb) return;
   await actions.patch(boardId, item, { ...(name ? { name } : {}), ...(thumb ? { thumb } : {}) }, { record: false });

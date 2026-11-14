@@ -2,10 +2,11 @@
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { toast } from 'sonner';
-import { DEFAULT_TTL, TRASH } from '@/shared/constants';
+import { DEFAULT_TTL, TRASH, expiryFrom } from '@/shared/constants';
 import { newId } from '@/shared/ids';
-import type { Board, CreateItem, Item, PatchItem } from '@/shared/schema';
-import { ApiError, api, serverNow, unwrap } from '../api/client';
+import { itemBase, mergePatch } from '@/shared/items';
+import type { Board, CreateItem, Item, MoveItem, PatchItem, Reminder } from '@/shared/schema';
+import { ApiError, api, drain, serverNow, unwrap } from '../api/client';
 import { qk } from './queries';
 import { conflictStore } from './stores';
 import { pushUndo, undoEntry } from './undo';
@@ -18,21 +19,14 @@ const ownRev = new Map<string, number>();
 // 还在排队的本机改动：先回来的结果叠上后面这些再显示，界面不往回跳
 const queued = new Map<string, PatchItem[]>();
 
-function applyPatch(item: Item, p: PatchItem): Item {
-  const next = { ...item, ...p } as Item & PatchItem;
-  if ('ttl' in p) next.expiresAt = p.ttl === null ? null : serverNow() + p.ttl! * 1000;
-  if ('remindAt' in p) next.remindDone = false;
-  delete (next as PatchItem).ttl;
-  delete (next as PatchItem).baseRev;
-  return next as Item;
-}
+/** 和服务端同一套合并规则，界面先变成服务端存好以后的样子 */
+const applyPatch = (item: Item, p: PatchItem) => mergePatch(item, p, serverNow());
 const withQueued = (item: Item) => (queued.get(item.id) ?? []).reduce(applyPatch, item);
 
 /** 新建的元素在服务端确认之前先长这样（rev 为 0） */
 function localItem(boardId: string, id: string, b: CreateItem): Item {
   const now = serverNow();
-  const ttl = b.ttl === undefined ? DEFAULT_TTL : b.ttl;
-  const base = { id, boardId, x: b.x, y: b.y, createdAt: now, updatedAt: now, expiresAt: ttl === null ? null : now + ttl * 1000, remindAt: null, remindDone: false, rev: 0 };
+  const base = itemBase({ id, boardId, x: b.x, y: b.y, now, expiresAt: expiryFrom(b.ttl === undefined ? DEFAULT_TTL : b.ttl, now), rev: 0 });
   if (b.type === 'note') return { ...base, type: 'note', text: b.text ?? '', color: b.color ?? 'yellow' };
   if (b.type === 'location') return { ...base, type: 'location', lat: b.lat, lng: b.lng, name: b.name ?? '' };
   return { ...base, type: b.type, file: b.file };
@@ -41,7 +35,7 @@ function localItem(boardId: string, id: string, b: CreateItem): Item {
 /** 哪些改动可以撤销，撤销时叫什么 */
 const UNDOABLE: [keyof PatchItem, string][] = [['text', '改文字'], ['color', '改颜色'], ['name', '改名'], ['links', '连线'], ['x', '移动'], ['y', '移动']];
 type Opt = { /** 撤销操作自己不再记一笔 */ record?: boolean };
-type MoveOpt = { ttl?: number | null; expiresAt?: number | null };
+type Quiet = Opt & { /** 不弹提示（撤销时） */ quiet?: boolean };
 
 export function createActions(qc: QueryClient) {
   const setItems = (boardId: string, fn: (items: Item[]) => Item[]) =>
@@ -73,8 +67,8 @@ export function createActions(qc: QueryClient) {
     }
   }
 
-  async function patch(boardId: string, item: Item, p: PatchItem, o: Opt = {}) {
-    const before = item;
+  /** 发一个改动：先改界面、排队发出，回来以后以服务端为准（叠上还在排队的）；失败时界面退回去并抛出 */
+  async function send(boardId: string, item: Item, p: PatchItem): Promise<Item> {
     const list = queued.get(item.id) ?? [];
     list.push(p);
     queued.set(item.id, list);
@@ -88,11 +82,22 @@ export function createActions(qc: QueryClient) {
       ownRev.set(item.id, saved.rev);
       settle();
       upsert(boardId, withQueued(saved));
+      return saved;
+    } catch (e) {
+      settle();
+      upsert(boardId, withQueued(item));
+      throw e;
+    }
+  }
+
+  async function patch(boardId: string, item: Item, p: PatchItem, o: Opt = {}) {
+    try {
+      const saved = await send(boardId, item, p);
       if ('remindAt' in p || 'remindDone' in p) qc.invalidateQueries({ queryKey: qk.reminders });
       const fields = UNDOABLE.filter(([k]) => k in p);
       if (o.record !== false && fields.length) {
         const back: Record<string, unknown> = {};
-        for (const [k] of fields) back[k] = k === 'links' ? before.links ?? [] : (before as Record<string, unknown>)[k];
+        for (const [k] of fields) back[k] = k === 'links' ? item.links ?? [] : (item as Record<string, unknown>)[k];
         pushUndo({
           label: fields[0][1],
           run: async () => {
@@ -105,8 +110,6 @@ export function createActions(qc: QueryClient) {
       }
       return saved;
     } catch (e) {
-      settle();
-      upsert(boardId, withQueued(before));
       if (e instanceof ApiError && e.status === 409 && 'text' in p) {
         upsert(boardId, e.data.item);
         conflictStore.set({ boardId, theirs: e.data.item, mine: p.text! });
@@ -115,41 +118,29 @@ export function createActions(qc: QueryClient) {
     }
   }
 
-  /** 多选一起拖：一次乐观更新全部，排一个任务里逐个保存 */
+  /** 多张一起拖：一次全部挪过去再逐个保存，撤销时一起挪回来；没存上的那几张退回原处 */
   async function patchMany(boardId: string, updates: { item: Item; patch: PatchItem }[], o: Opt = {}) {
-    for (const u of updates) upsert(boardId, { ...u.item, ...u.patch } as Item);
-    try {
-      await enqueue(async () => {
-        for (const u of updates) {
-          const saved = await unwrap<Item>(api.boards[':id'].items[':itemId'].$patch({ param: { id: boardId, itemId: u.item.id }, json: u.patch }));
-          ownRev.set(saved.id, saved.rev);
-          upsert(boardId, withQueued(saved));
-        }
+    const results = await Promise.allSettled(updates.map((u) => send(boardId, u.item, u.patch)));
+    const failed = results.find((r) => r.status === 'rejected');
+    if (failed) fail(failed.reason);
+    const moved = updates.filter((_, i) => results[i].status === 'fulfilled');
+    if (o.record !== false && moved.length) {
+      pushUndo({
+        label: `移动 ${moved.length} 项`,
+        run: () => patchMany(boardId, moved.flatMap((u) => {
+          const cur = find(boardId, u.item.id);
+          return cur ? [{ item: cur, patch: { x: u.item.x, y: u.item.y } }] : [];
+        }), { record: false }),
       });
-      if (o.record !== false) {
-        pushUndo({
-          label: `移动 ${updates.length} 项`,
-          run: () => patchMany(boardId, updates.flatMap((u) => {
-            const cur = find(boardId, u.item.id);
-            return cur ? [{ item: cur, patch: { x: u.item.x, y: u.item.y } }] : [];
-          }), { record: false }),
-        });
-      }
-    } catch (e) {
-      for (const u of updates) upsert(boardId, u.item);
-      fail(e);
     }
   }
 
-  /** 把进了废纸篓的放回原来的白板，到期时间恢复原样（撤销删除用） */
-  const putBack = async (pairs: { original: Item; trashed: Item }[]) => {
-    for (const { original, trashed } of pairs) {
-      await move(TRASH, trashed, original.boardId, { expiresAt: original.expiresAt }, { record: false, quiet: true });
-    }
-  };
+  /** 撤销一次挪动：挪回原来的白板；从废纸篓挪回来的，到期时间也恢复原样 */
+  const moveBack = (original: Item, moved: Item) =>
+    move(moved.boardId, moved, original.boardId, moved.boardId === TRASH ? { expiresAt: original.expiresAt } : {}, { record: false });
 
   /** 白板上的删除是进废纸篓，可以撤销；废纸篓里的删除是彻底删除 */
-  async function removeMany(boardId: string, list: Item[], o: Opt & { quiet?: boolean } = {}) {
+  async function removeMany(boardId: string, list: Item[], o: Quiet = {}) {
     if (!list.length) return;
     drop(boardId, list.map((x) => x.id));
     const failed: Item[] = [];
@@ -173,15 +164,15 @@ export function createActions(qc: QueryClient) {
     refresh(TRASH);
     if (!done.length) return;
     const label = done.length > 1 ? `删除 ${done.length} 项` : '删除';
-    const entry = o.record === false ? null : pushUndo({ label, run: () => putBack(done) });
+    const entry = o.record === false ? null : pushUndo({ label, run: async () => { for (const d of done) await moveBack(d.original, d.trashed); } });
     if (!o.quiet) {
       toast(done.length > 1 ? `已删除 ${done.length} 项，在废纸篓里留 30 天` : '已删除，在废纸篓里留 30 天', entry ? { action: { label: '撤销', onClick: () => { undoEntry(entry); } } } : undefined);
     }
   }
-  const remove = (boardId: string, item: Item, o?: Opt & { quiet?: boolean }) => removeMany(boardId, [item], o);
+  const remove = (boardId: string, item: Item, o?: Quiet) => removeMany(boardId, [item], o);
 
   /** 挪到另一块白板；从废纸篓里不指定目标就是放回原处 */
-  async function move(boardId: string, item: Item, to?: string, opts: MoveOpt = {}, o: Opt & { quiet?: boolean } = {}) {
+  async function move(boardId: string, item: Item, to?: string, opts: Omit<MoveItem, 'to'> = {}, o: Opt = {}) {
     drop(boardId, [item.id]);
     try {
       const r = await enqueue(() => unwrap<{ item: Item; to: string }>(
@@ -192,10 +183,7 @@ export function createActions(qc: QueryClient) {
       refresh(r.to);
       qc.invalidateQueries({ queryKey: qk.reminders });
       if (o.record !== false && boardId !== TRASH) {
-        pushUndo({
-          label: r.to === TRASH ? '丢入废纸篓' : '移到其他白板',
-          run: () => move(r.to, r.item, boardId, r.to === TRASH ? { expiresAt: item.expiresAt } : {}, { record: false, quiet: true }).then(() => {}),
-        });
+        pushUndo({ label: r.to === TRASH ? '丢入废纸篓' : '移到其他白板', run: () => moveBack(item, r.item) });
       }
       return r;
     } catch (e) {
@@ -205,15 +193,24 @@ export function createActions(qc: QueryClient) {
     }
   }
 
+  /** 提醒点了「知道了」：卡片在本机就照常改；不在本机（别的白板上的）直接发 */
+  async function ackReminder(r: Reminder) {
+    const it = find(r.boardId, r.itemId);
+    if (it) { await patch(r.boardId, it, { remindDone: true }); return; }
+    try {
+      await enqueue(() => unwrap(api.boards[':id'].items[':itemId'].$patch({ param: { id: r.boardId, itemId: r.itemId }, json: { remindDone: true } })));
+    } catch (e) { fail(e); }
+    qc.invalidateQueries({ queryKey: qk.reminders });
+  }
+
   async function clearTrash() {
     try {
-      // 后端一次只删一批，接着调到删完
       let removed = 0;
-      for (;;) {
+      await drain(async () => {
         const r = await enqueue(() => unwrap<{ removed: number; remaining: number }>(api.boards[':id'].items.$delete({ param: { id: TRASH } })));
         removed += r.removed;
-        if (!r.remaining || !r.removed) break;
-      }
+        return r.remaining > 0 && r.removed > 0;
+      });
       setItems(TRASH, () => []);
       toast(`废纸篓已清空（${removed} 项）`);
     } catch (e) { fail(e); }
@@ -236,11 +233,11 @@ export function createActions(qc: QueryClient) {
     try {
       // 元素多的白板后端一次挪不完，接着调到挪完、白板真的删掉
       let trashed = 0;
-      for (;;) {
+      await drain(async () => {
         const r = await enqueue(() => unwrap<{ trashed: number; remaining: number }>(api.boards[':id'].$delete({ param: { id } })));
         trashed += r.trashed;
-        if (!r.remaining || !r.trashed) break;
-      }
+        return r.remaining > 0 && r.trashed > 0;
+      });
       await qc.invalidateQueries({ queryKey: qk.boards });
       refresh(TRASH);
       toast(trashed ? `白板已删除，上面的 ${trashed} 项进了废纸篓` : '白板已删除');
@@ -248,7 +245,7 @@ export function createActions(qc: QueryClient) {
     } catch (e) { fail(e); return false; }
   }
 
-  return { create, patch, patchMany, remove, removeMany, move, clearTrash, createBoard, renameBoard, deleteBoard };
+  return { create, patch, patchMany, remove, removeMany, move, ackReminder, clearTrash, createBoard, renameBoard, deleteBoard };
 }
 export type Actions = ReturnType<typeof createActions>;
 

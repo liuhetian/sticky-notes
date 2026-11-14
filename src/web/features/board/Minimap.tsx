@@ -1,10 +1,12 @@
 // 小地图：按比例画出整块画布、每张卡片和当前视口；点或拖小地图就把视口挪过去
-import { useLayoutEffect, useState, type RefObject } from 'react';
+import { useState, type RefObject } from 'react';
 import { COLORS } from '@/shared/constants';
+import type { Box } from '@/shared/layout';
+import { cardsIn, useCardsChanged } from './cards';
+import type { View } from './geometry';
 
 const MAX_W = 200, MAX_H = 140;
-type Rect = { x: number; y: number; w: number; h: number; kind: string };
-import type { View } from './geometry';
+type Rect = Box & { kind: string };
 
 function kindOf(el: HTMLElement) {
   if (el.classList.contains('note')) return COLORS.find((c) => el.classList.contains(c)) ?? 'yellow';
@@ -14,19 +16,14 @@ function kindOf(el: HTMLElement) {
   return 'file';
 }
 
-export function Minimap({ world, view, canvasRef, version, onJump }: {
+export function Minimap({ world, view, canvasRef, onJump }: {
   world: { w: number; h: number };
   view: View;
   canvasRef: RefObject<HTMLDivElement | null>;
-  /** 元素变了就换一个值，触发重新量尺寸 */
-  version: string;
   onJump: (x: number, y: number) => void;
 }) {
   const [rects, setRects] = useState<Rect[]>([]);
-  useLayoutEffect(() => {
-    const els = canvasRef.current?.querySelectorAll<HTMLElement>(':scope > .item') ?? [];
-    setRects([...els].map((el) => ({ x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight, kind: kindOf(el) })));
-  }, [version, canvasRef]);
+  useCardsChanged(canvasRef, () => setRects(cardsIn(canvasRef.current!).map((c) => ({ ...c.rect, kind: kindOf(c.el) }))));
 
   const s = Math.min(MAX_W / world.w, MAX_H / world.h);
   const jump = (e: React.PointerEvent<HTMLDivElement>) => {

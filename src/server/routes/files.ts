@@ -4,7 +4,8 @@ import { DOC_EXT, FILE_ID_RE, INLINE_IMAGE_EXT, MEDIA_EXT, extOf } from '../../s
 import { newFileId } from '../../shared/ids';
 import { UploadRequest } from '../../shared/schema';
 import type { Env } from '../env';
-import { json, safeName } from './util';
+import { safeName } from '../services/items';
+import { json } from './util';
 
 export const files = new Hono<Env>()
   // 先领预签名 PUT 地址，浏览器直接传进 COS；传完再建元素
@@ -20,7 +21,8 @@ export const files = new Hono<Env>()
     if (!FILE_ID_RE.test(id)) return c.json({ error: '文件 ID 不对' }, 400);
     const store = c.get('ctx').files;
     const name = safeName(c.req.param('name'));
-    const known = INLINE_IMAGE_EXT[extOf(name)] ?? MEDIA_EXT[extOf(name)];
+    const ext = extOf(name);
+    const known = INLINE_IMAGE_EXT[ext] ?? MEDIA_EXT[ext];
     const inline = !!known && c.req.query('dl') !== '1';
     const mime = inline ? known : 'application/octet-stream';
     if (c.req.query('raw') === '1') {
@@ -33,16 +35,12 @@ export const files = new Hono<Env>()
         'X-Content-Type-Options': 'nosniff',
       });
     }
-    if ((await store.size(id)) === null) return c.json({ error: '文件没了（可能已过期）' }, 404);
     const preview = c.req.query('preview');
-    if (preview === 'cover' || preview === 'viewer') {
-      if (!DOC_EXT.includes(extOf(name))) return c.json({ error: '这种文件不能预览' }, 400);
-      c.header('Cache-Control', 'private, max-age=3600');
-      c.header('CDN-Cache-Control', 'no-store');
-      return c.redirect(await store.previewUrl(id, extOf(name), preview), 302);
-    }
-    // 地址一天一换；跳转本身缓存一小时，图片内容由浏览器按 COS 的地址缓存
+    const doc = preview === 'cover' || preview === 'viewer' ? preview : null;
+    if (doc && !DOC_EXT.includes(ext)) return c.json({ error: '这种文件不能预览' }, 400);
+    // 不先问 COS 文件在不在：每张图片显示都走这里，省一次请求；文件没了 COS 自己回 404。
+    // 地址一天一换；跳转本身缓存一小时，内容由浏览器按 COS 的地址缓存
     c.header('Cache-Control', 'private, max-age=3600');
     c.header('CDN-Cache-Control', 'no-store');
-    return c.redirect(await store.downloadUrl(id, { name, mime, inline }), 302);
+    return c.redirect(doc ? await store.previewUrl(id, ext, doc) : await store.downloadUrl(id, { name, mime, inline }), 302);
   });

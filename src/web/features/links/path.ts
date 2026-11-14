@@ -1,9 +1,8 @@
 // 连线的形状：一条微微弯的线，中间绕一个小圈，再交给 roughjs 加上手画的抖动
 import rough from 'roughjs';
+import type { Pos } from '@/shared/layout';
 
-export type Pos = { x: number; y: number };
-
-/** 没抖动的底稿：点击判定用它，roughjs 出问题时也直接画它 */
+/** 没抖动的底稿：点击判定用它 */
 export function curlyPath(p: Pos, q: Pos, seed: number): string {
   const dx = q.x - p.x, dy = q.y - p.y;
   const len = Math.hypot(dx, dy);
@@ -34,14 +33,8 @@ export function sketchy(d: string, seed: number): string[] {
   const key = `${seed}|${d}`;
   const hit = cache.get(key);
   if (hit) return hit;
-  let out: string[];
-  try {
-    const drawable = gen.path(d, { seed: seed + 1, roughness: 0.7, bowing: 0.6, disableMultiStroke: true, preserveVertices: true });
-    out = gen.toPaths(drawable).map((x) => x.d).filter(Boolean);
-    if (!out.length) out = [d];
-  } catch {
-    out = [d];
-  }
+  const drawable = gen.path(d, { seed: seed + 1, roughness: 0.7, bowing: 0.6, disableMultiStroke: true, preserveVertices: true });
+  const out = gen.toPaths(drawable).map((x) => x.d);
   if (cache.size > 400) cache.clear();
   cache.set(key, out);
   return out;

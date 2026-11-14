@@ -6,7 +6,8 @@ import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown'
 import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
 import { parseRef, refKey, refPath } from '@/shared/refs';
-import { continueTask, normalizeBareTasks } from '@/shared/todo';
+import type { NoteItem, PatchItem } from '@/shared/schema';
+import { allTasksDone, continueTask, normalizeBareTasks, toggleTaskLine } from '@/shared/todo';
 import { useMobile } from '../../lib/hooks';
 import { jumpTo } from '../../state/stores';
 
@@ -16,7 +17,7 @@ const ToggleCtx = createContext<((line: number, checked: boolean) => void) | nul
 function TaskBox(props: ComponentProps<'input'>) {
   const line = useContext(LineCtx);
   const toggle = useContext(ToggleCtx);
-  if (props.type !== 'checkbox') return <input {...props} />;
+  // 不渲染原文里的 HTML，所以这里的 input 只会是 GFM 待办的勾选框
   return (
     <input type="checkbox" checked={!!props.checked} disabled={!toggle || line === null}
       onChange={(e) => line !== null && toggle?.(line, e.target.checked)}
@@ -63,6 +64,34 @@ export function Markdown({ text, onToggle }: { text: string; onToggle?: (line: n
     <ToggleCtx.Provider value={onToggle ?? null}>
       <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={components}>{normalizeBareTasks(text)}</ReactMarkdown>
     </ToggleCtx.Provider>
+  );
+}
+
+/** 便利贴卡片的正文：看的时候渲染 markdown（能勾待办），编辑时换成编辑框；待办全勾完了给一个「丢入废纸篓」 */
+export function NoteContent({ item, editing, setEditing, readOnly, patch, onThrow }: {
+  item: NoteItem;
+  editing: boolean;
+  setEditing: (on: boolean) => void;
+  /** 废纸篓里：只能看 */
+  readOnly: boolean;
+  patch: (p: PatchItem) => void;
+  onThrow: () => void;
+}) {
+  if (editing) {
+    return <NoteEditor initial={item.text} onDone={(text) => {
+      setEditing(false);
+      if (text !== null && text !== item.text) patch({ text, baseRev: item.rev });
+    }} />;
+  }
+  return (
+    <>
+      <div className="md" onDoubleClick={() => !readOnly && setEditing(true)}>
+        <Markdown text={item.text} onToggle={readOnly ? undefined : (line, checked) => patch({ text: toggleTaskLine(item.text, line, checked), baseRev: item.rev })} />
+      </div>
+      {!readOnly && allTasksDone(item.text) && (
+        <button type="button" className="throw" onClick={(e) => { e.stopPropagation(); onThrow(); }}>🎉 全部完成 · 丢入废纸篓</button>
+      )}
+    </>
   );
 }
 

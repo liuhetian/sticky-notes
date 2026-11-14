@@ -1,7 +1,7 @@
 // 连线锚点：鼠标点的地方算哪个锚点、一个锚点现在在画布的什么位置（要量 DOM）
 import { refKey, type Ref } from '@/shared/refs';
 import type { Anchor, Item } from '@/shared/schema';
-import type { Pos } from './path';
+import type { Box, Pos } from '@/shared/layout';
 
 /** 图片上的一个点（0~1），会存下来 */
 export type PointAnchor = Anchor;
@@ -16,7 +16,6 @@ export const isPointAnchor = (a: WireAnchor | undefined): a is PointAnchor => !!
 export const isLineAnchor = (a: WireAnchor | undefined): a is LineAnchor => !!a && 'line' in a;
 export const sameAnchor = (x?: PointAnchor, y?: PointAnchor) => JSON.stringify(x ?? null) === JSON.stringify(y ?? null);
 
-export type Rect = { x: number; y: number; w: number; h: number };
 /** 屏幕坐标 → 画布坐标 */
 export type ToCanvas = (clientX: number, clientY: number) => Pos;
 
@@ -49,7 +48,7 @@ export function anchorAt(item: Item, target: Element, clientX: number, clientY: 
 }
 
 /** 便利贴正文里屏幕高度 clientY 的地方，贴在离对方近的那条边上；正文在卡片里滚动，滚出去了就贴在正文框的上沿或下沿 */
-function sideAt(md: HTMLElement, rect: Rect, clientY: number, toward: Pos, toCanvas: ToCanvas): Pos {
+function sideAt(md: HTMLElement, rect: Box, clientY: number, toward: Pos, toCanvas: ToCanvas): Pos {
   const box = md.getBoundingClientRect();
   const y = Math.max(box.top + 4, Math.min(box.bottom - 4, clientY));
   const onRight = toward.x > rect.x + rect.w / 2;
@@ -60,7 +59,7 @@ function sideAt(md: HTMLElement, rect: Rect, clientY: number, toward: Pos, toCan
  * 锚点现在在画布上的位置。图片上的点就是那个点；便利贴的行、引用链接取它的高度、贴在离对方近的那条边上。
  * 量不出来（图片还没加载、卡片正在编辑、引用写在代码块里没变成链接）返回 null，调用方改连整张卡片
  */
-export function anchorPos(card: HTMLElement, rect: Rect, item: Item, anchor: WireAnchor | undefined, toward: Pos, toCanvas: ToCanvas): Pos | null {
+export function anchorPos(card: HTMLElement, rect: Box, item: Item, anchor: WireAnchor | undefined, toward: Pos, toCanvas: ToCanvas): Pos | null {
   if (isPointAnchor(anchor)) {
     const img = photoOf(card);
     if (!img || !img.clientWidth) return null;
@@ -91,10 +90,10 @@ export function anchorPos(card: HTMLElement, rect: Rect, item: Item, anchor: Wir
   return null;
 }
 
-export const centerOf = (r: Rect): Pos => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+export const centerOf = (r: Box): Pos => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
 
 /** 从卡片中心朝 toward 方向出发，碰到卡片边的那一点 */
-export function edgeOf(r: Rect, toward: Pos): Pos {
+export function edgeOf(r: Box, toward: Pos): Pos {
   const c = centerOf(r);
   const dx = toward.x - c.x, dy = toward.y - c.y;
   if (!dx && !dy) return c;

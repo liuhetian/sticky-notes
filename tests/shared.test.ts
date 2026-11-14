@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { FILE_ID_RE } from '../src/shared/constants';
+import { DAY, FILE_ID_RE, fileKind } from '../src/shared/constants';
 import { gcj02ToWgs84, isAmapShortLink, mapUrl, parseAppleMapsUrl, parseAmapTarget, parseCoords, tileAt } from '../src/shared/geo';
 import { fileIdTime, newFileId } from '../src/shared/ids';
+import { itemBase, mergePatch } from '../src/shared/items';
+import type { Item } from '../src/shared/schema';
 import { addRef, dropRef, parseRef, refLink, refsIn } from '../src/shared/refs';
 import { withDescendants, type Wire } from '../src/web/features/links/model';
 import { previewKind } from '../src/shared/constants';
@@ -178,5 +180,27 @@ describe('文件 ID', () => {
     expect(id).toMatch(FILE_ID_RE);
     expect(fileIdTime(id)).toBe(1_800_000_000_000);
     expect(fileIdTime('f'.repeat(32))).toBeNull();
+  });
+});
+
+describe('合并改动（前后端同一套）', () => {
+  const note = { ...itemBase({ id: 'a'.repeat(16), boardId: 'b', x: 0, y: 0, now: 0, expiresAt: DAY }), type: 'note', text: 'x', color: 'yellow' } as Item;
+  it('只改这种元素有的字段', () => {
+    expect(mergePatch(note, { name: '地名', x: 5 }, 0)).toEqual({ ...note, x: 5 });
+  });
+  it('设了提醒就重新等着响；提醒比到期还晚时，到期推到提醒后一天', () => {
+    expect(mergePatch({ ...note, remindDone: true }, { remindAt: 3 * DAY }, 0)).toMatchObject({ remindAt: 3 * DAY, remindDone: false, expiresAt: 4 * DAY });
+    expect(mergePatch(note, { ttl: 600 }, 1000)).toMatchObject({ expiresAt: 1000 + 600_000 });
+  });
+  it('连线去掉重复的和连自己的', () => {
+    const l = (id: string, to: string) => ({ id, to });
+    expect(mergePatch(note, { links: [l('00000001', 'c'.repeat(16)), l('00000001', 'c'.repeat(16)), l('00000002', note.id)] }, 0).links).toEqual([l('00000001', 'c'.repeat(16))]);
+  });
+});
+
+describe('图片卡还是文件卡', () => {
+  it('只看扩展名：网页、快捷指令、聊天记录拆包一个规则', () => {
+    expect(['a.PNG', 'IMG_1.heic', 'x.webp'].map(fileKind)).toEqual(['image', 'image', 'image']);
+    expect(['a.svg', 'a.pdf', '没有扩展名'].map(fileKind)).toEqual(['file', 'file', 'file']);
   });
 });

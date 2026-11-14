@@ -1,7 +1,8 @@
 // 文档（PDF、Word、Excel、PPT）的封面：第一页的图由 COS 现转，这里只管取回来和记住页数
+import type { FileRef } from '@/shared/schema';
 import { fileUrl } from '../../api/client';
 
-type FileKey = { id: string; name: string };
+type FileKey = Pick<FileRef, 'id' | 'name'>;
 export type Cover = { url: string; pages: number | null };
 export const coverUrl = (file: FileKey) => `${fileUrl(file)}?preview=cover`;
 export const viewerUrl = (file: FileKey) => `${fileUrl(file)}?preview=viewer`;

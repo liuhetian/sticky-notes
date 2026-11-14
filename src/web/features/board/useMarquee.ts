@@ -1,6 +1,7 @@
 // V 模式在空白处按住拖：拉框多选。按住 Shift 是在原来的基础上加选；只点一下就取消选择
 import { useRef, useState, type PointerEvent, type RefObject } from 'react';
-import type { Box, Pos } from './geometry';
+import type { Box, Pos } from '@/shared/layout';
+import { cardsIn } from './cards';
 
 export function useMarquee(opts: {
   canvasRef: RefObject<HTMLDivElement | null>;
@@ -28,9 +29,8 @@ export function useMarquee(opts: {
     const r = { x: Math.min(m.x0, p.x), y: Math.min(m.y0, p.y), w: Math.abs(p.x - m.x0), h: Math.abs(p.y - m.y0) };
     setBox(r);
     const hit = new Set(m.base);
-    for (const el of opts.canvasRef.current!.querySelectorAll<HTMLElement>(':scope > .item[data-id]')) {
-      if (el.classList.contains('draft')) continue;
-      if (el.offsetLeft < r.x + r.w && el.offsetLeft + el.offsetWidth > r.x && el.offsetTop < r.y + r.h && el.offsetTop + el.offsetHeight > r.y) hit.add(el.dataset.id!);
+    for (const { id, rect: c } of cardsIn(opts.canvasRef.current!)) {
+      if (id && c.x < r.x + r.w && c.x + c.w > r.x && c.y < r.y + r.h && c.y + c.h > r.y) hit.add(id);
     }
     opts.setSelected(hit);
   };

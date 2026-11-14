@@ -1,10 +1,9 @@
 // 左侧白板标签：可以收起成一条窄栏（只剩图标），状态记在本机；左下角是设置、说明、退出
 import clsx from 'clsx';
-import { useState } from 'react';
 import { TRASH } from '@/shared/constants';
 import type { Board } from '@/shared/schema';
 import type { Actions } from '../../state/actions';
-import { guideStore } from '../../state/stores';
+import { guideStore, sidebarCollapsedStore } from '../../state/stores';
 import { Icon, IconButton } from '../../ui/Icon';
 import { Logo } from '../../ui/Logo';
 import { BoardIcon } from './BoardIcons';
@@ -22,11 +21,8 @@ type Props = {
 
 export function Sidebar({ boards, current, onSwitch, actions, renaming, setRenaming, onLogout }: Props) {
   const regular = boards.filter((b) => b.id !== TRASH);
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('clip.side') === 'collapsed');
-  const toggle = () => {
-    localStorage.setItem('clip.side', collapsed ? 'open' : 'collapsed');
-    setCollapsed(!collapsed);
-  };
+  const collapsed = sidebarCollapsedStore.use();
+  const toggle = () => sidebarCollapsedStore.set(!collapsed);
   return (
     <aside className={clsx('side', collapsed && 'collapsed')}>
       <div className="brand">

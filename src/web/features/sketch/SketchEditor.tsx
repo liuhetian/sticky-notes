@@ -82,7 +82,7 @@ function Editor({ bg, onCancel, onDone }: { bg?: { id: string; name: string }; o
       im.src = url;
     });
     return () => { alive = false; };
-  }, [bg]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [bg]);
 
   // 尺寸定了：画底层，建离屏的笔迹缓存
   useEffect(() => {

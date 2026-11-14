@@ -1,23 +1,31 @@
-// 传上来的文件变成什么：一般就是图片或文件卡片；微信聊天记录压缩包 → 便利贴 + 拆出来的图片和文件
-import { INLINE_IMAGE_EXT, extOf } from '../../shared/constants';
+// 文件传上来以后变成什么：一般就是图片或文件卡片；微信聊天记录压缩包 → 便利贴 + 拆出来的图片和文件
+import { MAX_FILE, fileKind, imageMime } from '../../shared/constants';
 import { newFileId, newId } from '../../shared/ids';
+import { itemBase } from '../../shared/items';
+import { COORD_MAX, sizeOf } from '../../shared/layout';
 import type { FileLikeItem, Item, NoteItem } from '../../shared/schema';
 import type { Ctx } from '../env';
 import { CHAT_ZIP, MAX_CHAT_ZIP, linkName, othersNote, readChatZip } from './chat';
-import { autoPlace, sizeOf } from './place';
+import { autoPlace } from './place';
 
 /**
- * 快捷指令发来的「上传中」元素：文件到了就转成正常卡片。
- * 返回转好的元素；聊天记录压缩包会多出拆开的图片和文件卡片，一并返回。others 是白板上别的元素，重新挑位置用
+ * 文件已经在 COS 里了（len 是实际大小），把元素存成正式的卡片：一般就是图片或文件卡片，
+ * 微信聊天记录压缩包原地变成便利贴、再拆出图片和文件卡片。返回存好的元素，第一个是它本身。
+ * pending：快捷指令先建好的「上传中」元素（已经存着），others 是白板上别的元素，聊天记录那一整组要重新挑位置时用。
+ * 超过大小上限返回 null，什么都不存，由调用方收拾
  */
-export async function settlePending(ctx: Ctx, it: FileLikeItem, others: Item[]): Promise<Item[]> {
-  const len = await ctx.files.size(it.file.id);
-  if (len === null) return [it];
-  // 拆包要把整个压缩包读进内存，读不动、解不开都别拖垮整块白板：当普通文件
-  const chat = await chatNote(ctx, it, len, others).catch(() => null);
-  if (chat) return chat;
-  const ready: Item = { ...it, pending: false, file: { ...it.file, size: len }, rev: it.rev + 1, updatedAt: Date.now() };
-  await ctx.db.putItem(ready, it);
+export async function intakeFile(ctx: Ctx, it: FileLikeItem, len: number, pending?: { others: Item[] }): Promise<Item[] | null> {
+  if (len > MAX_FILE) return null;
+  try {
+    const chat = await chatNote(ctx, it, len, pending?.others);
+    if (chat) return chat;
+  } catch (e) {
+    // 拆包要把整个压缩包读进内存。读不动、解不开、写到一半失败，都退回成普通文件卡片：
+    // 「上传中」的元素是在读白板时转的，这里要是抛出去，下一轮同步还会再拆一遍
+    console.error('[chat-zip]', it.file.name, e);
+  }
+  const ready: Item = { ...it, file: { ...it.file, size: len }, ...(pending ? { pending: false, rev: it.rev + 1, updatedAt: Date.now() } : {}) };
+  await ctx.db.putItem(ready, pending ? it : null);
   return [ready];
 }
 
@@ -27,7 +35,7 @@ export async function settlePending(ctx: Ctx, it: FileLikeItem, others: Item[]):
  * 还有太大没拆的（多半是视频），压缩包留着排在图片后面、末尾的说明链接到它，否则删掉。不是聊天记录返回 null，什么都不动。
  * 传了 others（快捷指令分享来的）就给这一整组重新挑位置；网页上传的留在放下的地方
  */
-export async function chatNote(ctx: Ctx, it: FileLikeItem, len: number, others?: Item[]): Promise<Item[] | null> {
+async function chatNote(ctx: Ctx, it: FileLikeItem, len: number, others?: Item[]): Promise<Item[] | null> {
   if (!CHAT_ZIP.test(it.file.name) || len > MAX_CHAT_ZIP) return null;
   const chat = readChatZip(await ctx.files.read(it.file.id));
   if (!chat) return null;
@@ -35,27 +43,29 @@ export async function chatNote(ctx: Ctx, it: FileLikeItem, len: number, others?:
   // 一行三张，行距按最高的图片卡（竖图）算，不会压到下一行
   const n = chat.parts.length + (chat.others ? 1 : 0);
   // 拆出来的卡片排在便利贴右边：便利贴有多宽就让开多远
-  const gap = sizeOf({ type: 'note', text: chat.text }).w + 30;
+  const noteSize = sizeOf({ type: 'note', text: chat.text }), img = sizeOf({ type: 'image' });
+  const gap = noteSize.w + 30, dx = img.w + 20, dy = img.h + 18;
   if (others) {
-    const img = sizeOf({ type: 'image' }), note = sizeOf({ type: 'note', text: chat.text });
-    const size = n ? { w: gap + (Math.min(3, n) - 1) * 300 + img.w, h: Math.max(note.h, (Math.ceil(n / 3) - 1) * 430 + img.h) } : note;
+    const size = n ? { w: gap + (Math.min(3, n) - 1) * dx + img.w, h: Math.max(noteSize.h, (Math.ceil(n / 3) - 1) * dy + img.h) } : noteSize;
     it = { ...it, ...autoPlace(others, size) };
   }
-  const slot = (i: number) => ({ x: Math.min(19_500, it.x + gap + (i % 3) * 300), y: Math.min(19_500, it.y + Math.floor(i / 3) * 430) });
-  const fresh = { boardId: it.boardId, createdAt: now, updatedAt: now, expiresAt: it.expiresAt, remindAt: null, remindDone: false, rev: 1 };
+  /** 第 i 张拆出来的卡片：基础字段和位置 */
+  const fresh = (i: number) => itemBase({
+    id: newId(), boardId: it.boardId, now, expiresAt: it.expiresAt,
+    x: Math.min(COORD_MAX, it.x + gap + (i % 3) * dx), y: Math.min(COORD_MAX, it.y + Math.floor(i / 3) * dy),
+  });
   const linked: Item[] = [];
   let text = chat.text;
   for (const part of chat.parts) {
     const fileId = newFileId();
-    const mime = INLINE_IMAGE_EXT[extOf(part.name)] ?? '';
+    const mime = imageMime(part.name);
     await ctx.files.write(fileId, part.data, mime);
-    const card: Item = { ...fresh, ...slot(linked.length), id: newId(), type: mime ? 'image' : 'file', file: { id: fileId, name: part.name, size: part.data.length, mime } };
+    const card: Item = { ...fresh(linked.length), type: fileKind(part.name), file: { id: fileId, name: part.name, size: part.data.length, mime } };
     linked.push(card);
     text = linkName(text, part.name, { id: card.id });
   }
   if (chat.others) {
-    const zip: Item = { ...it, ...fresh, ...slot(linked.length), id: newId(), pending: false, file: { ...it.file, size: len } };
-    delete zip.links;
+    const zip: Item = { ...fresh(linked.length), type: it.type, pending: false, file: { ...it.file, size: len } };
     linked.push(zip);
     text = `${text}\n\n${othersNote(chat.others, { id: zip.id })}`;
   }

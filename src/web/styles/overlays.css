@@ -5,7 +5,6 @@
 .mi:hover, .mi[data-highlighted] { background: #f4efe4; }
 .mi.danger { color: #b83a2e; }
 .mi-hint { margin-left: auto; padding-left: 14px; color: var(--muted); font-size: 12.5px; }
-.radio-dot { display: inline-grid; place-items: center; width: 14px; font-size: 9px; color: var(--accent); }
 .msep { height: 1px; margin: 5px 4px; background: var(--line); }
 .mlabel { padding: 4px 10px 4px; font-size: 12px; color: var(--muted); }
 .remind { min-width: 230px; }
@@ -23,8 +22,6 @@
 .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .conflict-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .note-preview { max-height: 300px; overflow: auto; padding: 14px; border-radius: 4px 4px 14px 4px; background: var(--yellow); box-shadow: var(--shadow); }
-.note-preview.pink { background: var(--pink); } .note-preview.blue { background: var(--blue); } .note-preview.green { background: var(--green); }
-.note-preview.purple { background: var(--purple); } .note-preview.orange { background: var(--orange); }
 .note-preview.mine { background: #fff; }
 .note-preview pre { margin: 0; white-space: pre-wrap; font: inherit; font-size: 16px; }
 .guide p { line-height: 1.7; }
@@ -40,7 +37,6 @@
 .doc-viewer { position: fixed; z-index: 25000; inset: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 14px 16px 16px; outline: none; }
 .doc-frame { flex: 1; align-self: stretch; width: min(1100px, 100%); margin: 0 auto; border: 0; border-radius: 8px; background: #fff; box-shadow: 0 10px 40px rgba(0, 0, 0, .35); }
 .lb-bar { display: flex; align-items: center; gap: 12px; color: #eee; font-size: 14px; }
-.fab { display: none; }
 
 /* ── 设置面板 ── */
 .settings-panel { width: 248px; }

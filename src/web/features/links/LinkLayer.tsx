@@ -1,13 +1,15 @@
 // 画连线。线画在卡片底下；接在图片某个点上的那一头，另外在卡片上面补画落在这张卡片里的一小段，点才看得见。
-// 卡片的位置和大小直接量 DOM：拖动、多选一起拖、便利贴变高、图片加载完，线都跟着走
+// 卡片的位置和大小直接量 DOM（board/cards.ts）：拖动、多选一起拖、便利贴变高、图片加载完，线都跟着走
 import clsx from 'clsx';
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useState, type RefObject } from 'react';
+import type { Box, Pos } from '@/shared/layout';
 import type { Item } from '@/shared/schema';
-import { anchorPos, centerOf, edgeOf, isPointAnchor, type PickAnchor, type Rect, type WireAnchor } from './anchors';
+import { cardsIn, useCardsChanged, type CardBox } from '../board/cards';
+import { anchorPos, centerOf, edgeOf, isPointAnchor, type PickAnchor, type WireAnchor } from './anchors';
 import type { Wire } from './model';
-import { curlyPath, seedOf, sketchy, type Pos } from './path';
+import { curlyPath, seedOf, sketchy } from './path';
 
-type Seg = { key: string; p: Pos; q: Pos; anchoredP: boolean; anchoredQ: boolean; clipP?: Rect; clipQ?: Rect };
+type Seg = { key: string; p: Pos; q: Pos; anchoredP: boolean; anchoredQ: boolean; clipP?: Box; clipQ?: Box };
 export type TempWire = { from: string; anchor?: PickAnchor; to: Pos | null };
 
 export function LinkLayer({ wires, items, canvasRef, world, selected, onSelect, onRemove, temp }: {
@@ -23,69 +25,43 @@ export function LinkLayer({ wires, items, canvasRef, world, selected, onSelect, 
 }) {
   const [segs, setSegs] = useState<Seg[]>([]);
   const [tempStart, setTempStart] = useState<Pos | null>(null);
-  const live = useRef({ wires, items, temp });
-  live.current = { wires, items, temp };
-  const measureRef = useRef<() => void>(() => {});
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    let raf = 0;
-    const compute = () => {
-      const { wires: ws, items: its, temp: tmp } = live.current;
-      const byId = new Map(its.map((i) => [i.id, i]));
-      const cards = new Map<string, { el: HTMLElement; rect: Rect }>();
-      for (const el of canvas.querySelectorAll<HTMLElement>(':scope > .item[data-id]')) {
-        cards.set(el.dataset.id!, { el, rect: { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight } });
-      }
-      const box = canvas.getBoundingClientRect();
-      const k = box.width / (canvas.offsetWidth || 1) || 1;
-      const toCanvas = (cx: number, cy: number) => ({ x: (cx - box.left) / k, y: (cy - box.top) / k });
-      const out: Seg[] = [];
-      for (const w of ws) {
-        const a = cards.get(w.holder), b = cards.get(w.link.to);
-        const ia = byId.get(w.holder), ib = byId.get(w.link.to);
-        if (!a || !b || !ia || !ib) continue;
-        // 便利贴文字里的引用：这一头接在那个链接上
-        const endA: WireAnchor | undefined = w.ref ? { ref: w.ref } : w.link.a;
-        // 图片上的点位置是固定的，先定下来；另一头朝着它去
-        const fixedP = isPointAnchor(endA) ? anchorPos(a.el, a.rect, ia, endA, centerOf(b.rect), toCanvas) : null;
-        const fixedQ = isPointAnchor(w.link.b) ? anchorPos(b.el, b.rect, ib, w.link.b, centerOf(a.rect), toCanvas) : null;
-        const towardP = fixedQ ?? centerOf(b.rect), towardQ = fixedP ?? centerOf(a.rect);
-        const ap = fixedP ?? anchorPos(a.el, a.rect, ia, endA, towardP, toCanvas);
-        const aq = fixedQ ?? anchorPos(b.el, b.rect, ib, w.link.b, towardQ, toCanvas);
-        out.push({
-          key: w.key,
-          p: ap ?? edgeOf(a.rect, aq ?? towardP),
-          q: aq ?? edgeOf(b.rect, ap ?? towardQ),
-          anchoredP: !!ap, anchoredQ: !!aq,
-          clipP: fixedP ? a.rect : undefined, clipQ: fixedQ ? b.rect : undefined,
-        });
-      }
-      setSegs(out);
-      const from = tmp && cards.get(tmp.from), fromItem = tmp && byId.get(tmp.from);
-      if (from && fromItem && tmp.to) setTempStart(anchorPos(from.el, from.rect, fromItem, tmp.anchor, tmp.to, toCanvas) ?? edgeOf(from.rect, tmp.to));
-      else setTempStart(null);
-    };
-    const measure = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(compute); };
-    measureRef.current = measure;
-    const ro = new ResizeObserver(measure);
-    const watchSizes = () => canvas.querySelectorAll(':scope > .item').forEach((el) => ro.observe(el));
-    // 卡片挪了（style）、增删了（childList）、内容变了就重量；线自己那两层的变化不算
-    const mo = new MutationObserver((records) => {
-      if (records.some((r) => r.type === 'childList' && r.target === canvas)) watchSizes();
-      if (records.some((r) => !(r.target instanceof Element && r.target.closest('.links')))) measure();
-    });
-    mo.observe(canvas, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class'] });
-    // 长便利贴在卡片里滚动、图片加载完：接在行上、点上的线要跟着动
-    canvas.addEventListener('scroll', measure, true);
-    canvas.addEventListener('load', measure, true);
-    watchSizes();
-    measure();
-    return () => { mo.disconnect(); ro.disconnect(); cancelAnimationFrame(raf); canvas.removeEventListener('scroll', measure, true); canvas.removeEventListener('load', measure, true); };
-  }, [canvasRef]);
-  // 线本身变了（新连、断开、锚点的行被改）、连线中鼠标动了：也重量
-  useEffect(() => { measureRef.current(); }, [wires, items, temp]);
+  const compute = () => {
+    const canvas = canvasRef.current!;
+    const byId = new Map(items.map((i) => [i.id, i]));
+    const cards = new Map<string, CardBox>();
+    for (const c of cardsIn(canvas)) if (c.id) cards.set(c.id, c);
+    const box = canvas.getBoundingClientRect();
+    const k = box.width / (canvas.offsetWidth || 1) || 1;
+    const toCanvas = (cx: number, cy: number) => ({ x: (cx - box.left) / k, y: (cy - box.top) / k });
+    const out: Seg[] = [];
+    for (const w of wires) {
+      const a = cards.get(w.holder), b = cards.get(w.link.to);
+      const ia = byId.get(w.holder), ib = byId.get(w.link.to);
+      if (!a || !b || !ia || !ib) continue;
+      // 便利贴文字里的引用：这一头接在那个链接上
+      const endA: WireAnchor | undefined = w.ref ? { ref: w.ref } : w.link.a;
+      // 图片上的点位置是固定的，先定下来；另一头朝着它去
+      const fixedP = isPointAnchor(endA) ? anchorPos(a.el, a.rect, ia, endA, centerOf(b.rect), toCanvas) : null;
+      const fixedQ = isPointAnchor(w.link.b) ? anchorPos(b.el, b.rect, ib, w.link.b, centerOf(a.rect), toCanvas) : null;
+      const towardP = fixedQ ?? centerOf(b.rect), towardQ = fixedP ?? centerOf(a.rect);
+      const ap = fixedP ?? anchorPos(a.el, a.rect, ia, endA, towardP, toCanvas);
+      const aq = fixedQ ?? anchorPos(b.el, b.rect, ib, w.link.b, towardQ, toCanvas);
+      out.push({
+        key: w.key,
+        p: ap ?? edgeOf(a.rect, aq ?? towardP),
+        q: aq ?? edgeOf(b.rect, ap ?? towardQ),
+        anchoredP: !!ap, anchoredQ: !!aq,
+        clipP: fixedP ? a.rect : undefined, clipQ: fixedQ ? b.rect : undefined,
+      });
+    }
+    setSegs(out);
+    const from = temp && cards.get(temp.from), fromItem = temp && byId.get(temp.from);
+    if (from && fromItem && temp.to) setTempStart(anchorPos(from.el, from.rect, fromItem, temp.anchor, temp.to, toCanvas) ?? edgeOf(from.rect, temp.to));
+    else setTempStart(null);
+  };
+  // 卡片动了要重量；线本身变了（新连、断开、引用的文字被改）、连线中鼠标动了，也重量
+  const measure = useCardsChanged(canvasRef, compute);
+  useEffect(() => { measure(); }, [wires, items, temp, measure]);
 
   const shapes = segs.map((s) => {
     const seed = seedOf(s.key);
