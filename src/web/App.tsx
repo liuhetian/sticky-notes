@@ -74,10 +74,10 @@ function Main() {
   useEffect(() => {
     if (!jump) return;
     jumpStore.set(null);
-    const id = jump.itemId;
-    if (current && current.id !== TRASH && qc.getQueryData<Item[]>(qk.items(current.id))?.some((x) => x.id === id)) { spotlight(id); return; }
+    const { itemId: id, dim } = jump;
+    if (current && current.id !== TRASH && qc.getQueryData<Item[]>(qk.items(current.id))?.some((x) => x.id === id)) { spotlight(id, dim); return; }
     unwrap<{ boardId: string }>(api.items[':id'].locate.$get({ param: { id } }))
-      .then(({ boardId }) => { switchBoard(boardId); spotlight(id); })
+      .then(({ boardId }) => { switchBoard(boardId); spotlight(id, dim); })
       .catch(() => toast.error('这条已经过期或被删了'));
   }, [jump]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!boards || !current) return <div className="splash"><Logo /></div>;

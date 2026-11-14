@@ -55,6 +55,8 @@ export function BoardView({ board, boards, actions, upload, apiRef }: {
   const [draft, setDraft] = useState<Pos | null>(null);
   const [dropping, setDropping] = useState(false);
   const [lit, setLit] = useState<string | null>(null);
+  /** 高亮时要不要把其余部分压暗 */
+  const [dim, setDim] = useState(false);
   const [tool, setTool] = useState<'select' | 'hand'>('select');
   const [space, setSpace] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -210,13 +212,14 @@ export function BoardView({ board, boards, actions, upload, apiRef }: {
     vp.centerOn(contentCenter(items));
   }, [isPending, items]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 高亮：分享链接、提醒「看看」把目标放进 spotlightStore；一直闪，直到鼠标移上去 ──
+  // ── 高亮：分享链接、提醒「看看」、点引用把目标放进 spotlightStore；一直闪，直到鼠标移上去 ──
   const spot = spotlightStore.use();
   useEffect(() => {
     if (!spot || !items.some((it) => it.id === spot.itemId)) return;
     const id = spot.itemId;
     spotlightStore.set(null);
     setLit(id);
+    setDim(spot.dim);
     requestAnimationFrame(() => canvasRef.current?.querySelector(`[data-id="${id}"]`)?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' }));
   }, [spot, items]);
 
@@ -255,6 +258,9 @@ export function BoardView({ board, boards, actions, upload, apiRef }: {
             onPointerUp={() => { if (pan.end()) swallowClick.current = true; }}
             onPointerCancel={() => { pan.end(); }}
             onClickCapture={(e) => { if (swallowClick.current) { swallowClick.current = false; e.stopPropagation(); e.preventDefault(); } }}
+            // 白板里不发起浏览器自己的拖动：不然便利贴里的链接能被拖出来，落在画布上又变成一张新便利贴（还连上线）。
+            // 卡片移动用的是指针事件，不受影响；编辑框里拖动选中的字照常
+            onDragStart={(e) => { if (!typing(e.target)) e.preventDefault(); }}
             onDragEnter={(e) => { if (hasFiles(e)) { depth.current++; setDropping(true); } }}
             onDragLeave={(e) => { if (hasFiles(e) && --depth.current <= 0) { depth.current = 0; setDropping(false); } }}
             onDragOver={(e) => e.preventDefault()}
@@ -356,7 +362,7 @@ export function BoardView({ board, boards, actions, upload, apiRef }: {
       )}
       <div className={clsx('drop', dropping && 'on')}>松手上传</div>
       {linking.from && <div className="link-hint">点另一张卡片连上线；点在图片的某个位置上，就接到那里 <kbd>Esc</kbd> 取消</div>}
-      <div className={clsx('spot-dim', lit && 'on')} />
+      <div className={clsx('spot-dim', lit && dim && 'on')} />
 
       {!mobile && (
         <>

@@ -40,7 +40,8 @@ function Link({ href, children, ...p }: ComponentProps<'a'>) {
       // 按着 Ctrl/Cmd/Shift 交给浏览器：新标签打开 /<id>，在那边跳过去
       if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
       e.preventDefault();
-      jumpTo(ref.id);
+      // 只让目标闪，不压暗画面：要看的正是这张便利贴和它连着的卡片
+      jumpTo(ref.id, false);
     }}>{children}</a>
   );
 }
