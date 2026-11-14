@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api, unwrap } from '../../api/client';
+import { Logo } from '../../ui/Logo';
 
 export function Login({ onDone }: { onDone: () => void }) {
   const [password, setPassword] = useState('');
@@ -20,8 +21,8 @@ export function Login({ onDone }: { onDone: () => void }) {
           setBusy(false);
         }
       }}>
-        <div className="login-pin">📌</div>
-        <h1>剪贴板</h1>
+        <Logo className="login-logo" />
+        <h1>牛牛便利贴</h1>
         <p className="login-sub">这台设备粘贴，那台设备拿走</p>
         <input type="password" placeholder="密码" autoComplete="current-password" required autoFocus
           value={password} onChange={(e) => setPassword(e.target.value)} />

@@ -19,14 +19,15 @@ button { cursor: pointer; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .ic { display: inline-flex; }
 .ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.splash { height: 100%; display: grid; place-items: center; font-size: 40px; animation: breathe 1.4s ease-in-out infinite; }
+.splash { height: 100%; display: grid; place-items: center; animation: breathe 1.4s ease-in-out infinite; }
+.splash .logo { width: 64px; height: 64px; }
 @keyframes breathe { 50% { opacity: .4; transform: scale(.92); } }
 
 /* ── 登录 ── */
 .login-page { height: 100%; display: grid; place-items: center; padding: 24px; background: radial-gradient(#d8cfbd 1.2px, transparent 1.4px) 0 0 / 24px 24px, var(--paper); }
 .login-card { position: relative; width: min(88vw, 340px); padding: 38px 28px 24px; text-align: center; background: var(--yellow); border-radius: 3px 3px 18px 3px; box-shadow: var(--shadow-up); transform: rotate(-1.4deg); }
 .login-card::before { content: ''; position: absolute; top: -11px; left: 50%; width: 88px; height: 24px; margin-left: -44px; background: rgba(255, 255, 255, .6); box-shadow: 0 1px 2px rgba(0, 0, 0, .06); transform: rotate(-3deg); }
-.login-pin { font-size: 34px; line-height: 1; }
+.login-logo { display: block; width: 64px; height: 64px; margin: 0 auto; }
 .login-card h1 { margin: 8px 0 2px; font-size: 30px; letter-spacing: 2px; }
 .login-sub { margin: 0 0 22px; color: #8a7b4f; }
 .login-card input { width: 100%; padding: 11px 14px; font-size: 16px; outline: none; border: 1.5px solid rgba(0, 0, 0, .12); border-radius: 10px; background: rgba(255, 255, 255, .7); }

@@ -6,6 +6,7 @@ import type { Board } from '@/shared/schema';
 import type { Actions } from '../../state/actions';
 import { guideStore } from '../../state/stores';
 import { Icon, IconButton } from '../../ui/Icon';
+import { Logo } from '../../ui/Logo';
 import { BoardIcon } from './BoardIcons';
 import { SettingsButton } from './Settings';
 
@@ -29,7 +30,7 @@ export function Sidebar({ boards, current, onSwitch, actions, renaming, setRenam
   return (
     <aside className={clsx('side', collapsed && 'collapsed')}>
       <div className="brand">
-        <span className="brand-pin">📌</span><span className="brand-name">剪贴板</span>
+        <Logo className="brand-logo" /><span className="brand-name">牛牛便利贴</span>
         <IconButton name={collapsed ? 'panelOpen' : 'panelClose'} title={collapsed ? '展开侧栏' : '收起侧栏'} className="side-toggle" onClick={toggle} />
       </div>
       <nav className="tabs">

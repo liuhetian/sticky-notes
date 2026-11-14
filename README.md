@@ -1,4 +1,4 @@
-# 剪贴板白板
+# 牛牛便利贴
 
 https://clip.liuhetian.life ：这台设备粘贴，那台设备拿走。功能和规则见 [REQUIREMENTS.md](REQUIREMENTS.md)。
 

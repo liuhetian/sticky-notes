@@ -1,4 +1,4 @@
-// 剪贴板 API（/api/*）：这里只管把各组路由拼起来。数据模型见 ../shared/schema.ts
+// 牛牛便利贴 API（/api/*）：这里只管把各组路由拼起来。数据模型见 ../shared/schema.ts
 import { Hono, type Context } from 'hono';
 import { requireAuth } from './auth';
 import type { Ctx, Env } from './env';

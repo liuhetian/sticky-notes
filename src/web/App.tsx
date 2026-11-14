@@ -19,6 +19,7 @@ import { useDailyCleanup } from './state/cleanup';
 import { useActions } from './state/actions';
 import { qk, useBoards, useItems } from './state/queries';
 import { spotlight } from './state/stores';
+import { Logo } from './ui/Logo';
 
 export function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -29,7 +30,7 @@ export function App() {
     authLost.addEventListener('lost', lost);
     return () => authLost.removeEventListener('lost', lost);
   }, [qc]);
-  if (authed === null) return <div className="splash">📌</div>;
+  if (authed === null) return <div className="splash"><Logo /></div>;
   if (!authed) return <Login onDone={() => setAuthed(true)} />;
   return <Main />;
 }
@@ -66,7 +67,7 @@ function Main() {
 
   const current = boards?.find((b) => b.id === boardId) ?? boards?.find((b) => b.id !== TRASH);
   const { data: items, isError } = useItems(current?.id);
-  if (!boards || !current) return <div className="splash">📌</div>;
+  if (!boards || !current) return <div className="splash"><Logo /></div>;
   const inTrash = current.id === TRASH;
 
   return (

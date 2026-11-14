@@ -28,7 +28,7 @@ export function useReminders(boards: Board[], go: (r: Reminder) => void, done: (
       });
       shown.current.set(r.itemId, tid);
       if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-        new Notification('剪贴板提醒', { body: `「${board}」上有一条到点了`, tag: r.itemId });
+        new Notification('牛牛便利贴提醒', { body: `「${board}」上有一条到点了`, tag: r.itemId });
       }
     }
   });

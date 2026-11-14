@@ -1,6 +1,6 @@
 {
-  "name": "剪贴板",
-  "short_name": "剪贴板",
+  "name": "牛牛便利贴",
+  "short_name": "牛牛便利贴",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f5f2ea",
