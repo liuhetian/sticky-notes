@@ -1,11 +1,14 @@
 // 便利贴正文：react-markdown + GFM（待办列表）+ 换行保留；不渲染原文里的 HTML。
-// 每个块都带上它在原文里的起始行号和行数（data-line / data-lines）：勾待办、连线接到某一行都靠它定位
+// 每个块都带上它在原文里的起始行号和行数（data-line / data-lines）：勾待办、从某一行拉线都靠它定位。
+// 指向本站元素的链接（[标题](/id)、贴进来的分享链接）是引用：点了跳到那个元素，连线也从这个链接画出去
 import { createContext, createElement, useContext, useEffect, useRef, useState, type ComponentProps } from 'react';
 import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
+import { parseRef, refKey, refPath } from '@/shared/refs';
 import { continueTask, normalizeBareTasks } from '@/shared/todo';
 import { useMobile } from '../../lib/hooks';
+import { jumpTo } from '../../state/stores';
 
 const LineCtx = createContext<number | null>(null);
 const ToggleCtx = createContext<((line: number, checked: boolean) => void) | null>(null);
@@ -27,8 +30,23 @@ const lineProps = (node: ExtraProps['node']) => {
 };
 const block = (tag: string) => ({ node, ...p }: ExtraProps & Record<string, unknown>) => createElement(tag, { ...p, ...lineProps(node) });
 
+function Link({ href, children, ...p }: ComponentProps<'a'>) {
+  const ref = href ? parseRef(href, location.origin) : null;
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  if (!ref) return <a {...p} href={href} target="_blank" rel="noopener noreferrer" onClick={stop} onDoubleClick={stop}>{children}</a>;
+  return (
+    <a {...p} href={refPath(ref)} className="ref" data-ref={refKey(ref)} onDoubleClick={stop} onClick={(e) => {
+      e.stopPropagation();
+      // 按着 Ctrl/Cmd/Shift 交给浏览器：新标签打开 /<id>，在那边跳过去
+      if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      jumpTo(ref.id);
+    }}>{children}</a>
+  );
+}
+
 const components: Components = {
-  a: ({ node: _n, ...p }) => <a {...p} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} />,
+  a: ({ node: _n, ...p }) => <Link {...p} />,
   li: ({ node, children, ...p }) => (
     <li {...p} {...lineProps(node)}>
       <LineCtx.Provider value={node?.position ? node.position.start.line - 1 : null}>{children}</LineCtx.Provider>

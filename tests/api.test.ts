@@ -88,12 +88,12 @@ describe('元素', () => {
     expect(r.data.item.text).toBe('别人改的');
     expect((await t.call('PATCH', `/boards/${b}/items/${it.id}`, { text: '我改的', baseRev: 2 })).status).toBe(200);
   });
-  it('连线：带锚点存下来，按 id 去重，去掉连自己的', async () => {
+  it('连线：带锚点存下来，按 id 去重，去掉连自己的；锚点只认图片上的点', async () => {
     const b = await t.firstBoard();
     const a = (await t.call('POST', `/boards/${b}/items`, note({ text: '一\n二' }))).data;
     const other = newId();
     const links = [
-      { id: 'aaaaaaaa', to: other, a: { line: 1, hint: '二' }, b: { px: 0.25, py: 0.5 } },
+      { id: 'aaaaaaaa', to: other, a: { px: 1, py: 0 }, b: { px: 0.25, py: 0.5 } },
       { id: 'aaaaaaaa', to: other },
       { id: 'bbbbbbbb', to: a.id },
       { id: 'cccccccc', to: other },
@@ -101,6 +101,7 @@ describe('元素', () => {
     const r = await t.call('PATCH', `/boards/${b}/items/${a.id}`, { links });
     expect(r.data.links).toEqual([links[0], links[3]]);
     expect((await t.call('PATCH', `/boards/${b}/items/${a.id}`, { links: [{ id: 'x', to: other }] })).status).toBe(400);
+    expect((await t.call('PATCH', `/boards/${b}/items/${a.id}`, { links: [{ id: 'dddddddd', to: other, a: { line: 1, hint: '二' } }] })).status).toBe(400);
   });
   it('分享链接：locate 找到所在白板；进了废纸篓就算没了', async () => {
     const b = await t.firstBoard();

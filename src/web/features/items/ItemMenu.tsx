@@ -4,27 +4,21 @@ import clsx from 'clsx';
 import { toast } from 'sonner';
 import { COLORS, TRASH } from '@/shared/constants';
 import { fmtCoords } from '@/shared/geo';
-import type { Anchor, Board, Item } from '@/shared/schema';
+import type { Board, Item } from '@/shared/schema';
 import { shareUrl } from '../../api/client';
 import { copyImage, copyText, download, shareLink } from '../../lib/clipboard';
 import { TTL_LABELS, fmtDay } from '../../lib/format';
 import type { Actions } from '../../state/actions';
 import { editStore, lightboxStore, sketchStore, ttlStore } from '../../state/stores';
 import { Icon, type IconName } from '../../ui/Icon';
-import { otherEnd, wiresFor, type Wire } from '../links/model';
+import type { PickAnchor } from '../links/anchors';
+import { labelOf, otherEnd, wiresFor, type Wire } from '../links/model';
 import { askNotificationPermission } from '../reminders/useReminders';
 import { openInMap } from './bodies';
 import { readableUrl } from './FileImage';
 import { quickPicks } from './Menus';
 
 const COLOR_NAMES: Record<(typeof COLORS)[number], string> = { yellow: '黄', pink: '粉', blue: '蓝', green: '绿', purple: '紫', orange: '橙' };
-
-/** 一句话认出是哪张卡片：便利贴取第一行，文件取文件名，位置取地名 */
-export function labelOf(it: Item) {
-  const s = it.type === 'note' ? it.text.replace(/[*_`#>[\]-]/g, ' ').split('\n').map((l) => l.trim()).find(Boolean) ?? '空便利贴'
-    : it.type === 'location' ? it.name || fmtCoords(it) : it.file.name;
-  return s.length > 18 ? `${s.slice(0, 18)}…` : s;
-}
 
 const Row = ({ icon, children, danger, onSelect }: { icon: IconName; children: React.ReactNode; danger?: boolean; onSelect: () => void }) => (
   <CM.Item className={clsx('mi', danger && 'danger')} onSelect={onSelect}><Icon name={icon} /><span>{children}</span></CM.Item>
@@ -39,8 +33,8 @@ const Sub = ({ icon, label, children }: { icon: IconName; label: string; childre
 export function ItemMenu({ item, boardId, boards, items, wires, actions, mobile, anchor, onLink, onUnlink, selectedCount, onDeleteSelected }: {
   item: Item; boardId: string; boards: Board[]; items: Item[]; wires: Wire[]; actions: Actions; mobile: boolean;
   /** 右键点在便利贴的某一行、图片的某个点上：可以从那里拉线 */
-  anchor?: Anchor;
-  onLink: (anchor?: Anchor) => void; onUnlink: (w: Wire) => void;
+  anchor?: PickAnchor;
+  onLink: (anchor?: PickAnchor) => void; onUnlink: (w: Wire) => void;
   /** 右键的这张在多选里：多一项「删除选中的 N 项」 */
   selectedCount: number; onDeleteSelected: () => void;
 }) {

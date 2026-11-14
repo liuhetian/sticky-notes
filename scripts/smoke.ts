@@ -21,6 +21,9 @@ if (js) {
   check('脚本长缓存', r.status === 200 && /immutable/.test(r.headers.get('cache-control') ?? ''), r.headers.get('cache-control') ?? '');
 }
 check('manifest', (await fetch(`${BASE}/manifest.webmanifest`)).status === 200);
+// 分享链接 /<id> 由前端处理：静态页没有的路径都回首页
+const deep = await fetch(`${BASE}/0123456789abcdef`);
+check('分享链接回首页', deep.status === 200 && (await deep.text()).includes('/assets/'), `${deep.status}，${deep.headers.get('cache-control')}`);
 
 // 鉴权
 check('匿名 401', (await call('GET', '/boards', undefined, {})).status === 401);

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { lineAnchor, resolveLine } from '../src/shared/anchors';
 import { FILE_ID_RE } from '../src/shared/constants';
 import { gcj02ToWgs84, isAmapShortLink, mapUrl, parseAppleMapsUrl, parseAmapTarget, parseCoords, tileAt } from '../src/shared/geo';
 import { fileIdTime, newFileId } from '../src/shared/ids';
+import { addRef, dropRef, parseRef, refLink, refsIn } from '../src/shared/refs';
 import { withDescendants, type Wire } from '../src/web/features/links/model';
 import { previewKind } from '../src/shared/constants';
 import { allTasksDone, continueTask, countTasks, normalizeBareTasks, toggleTaskLine } from '../src/shared/todo';
@@ -105,18 +105,44 @@ describe('高德分享链接', () => {
   });
 });
 
-describe('连线锚点', () => {
-  const text = '标题\n第一条\n\n第二条';
-  it('行号还对就用行号；行被挪走了按内容找；找不到返回 null', () => {
-    const a = lineAnchor(text, 3)!;
-    expect(a).toEqual({ line: 3, hint: '第二条' });
-    expect(resolveLine(text, a)).toBe(3);
-    expect(resolveLine(`新加一行\n${text}`, a)).toBe(4);
-    expect(resolveLine('标题\n第一条\n改掉了', a)).toBeNull();
+describe('便利贴里的引用', () => {
+  const A = '0123456789abcdef', B = 'fedcba9876543210';
+  const O = 'https://clip.liuhetian.life';
+  it('生成：标题里的方括号转义、换行压平；图片上的点最多 3 位小数', () => {
+    expect(refLink('a[1]\nb', { id: A })).toBe(`[a\\[1\\] b](/${A})`);
+    expect(refLink('图', { id: A, p: { px: 0.25, py: 1 / 3 } })).toBe(`[图](/${A}#0.25,0.333)`);
   });
-  it('空行做不了锚点', () => {
-    expect(lineAnchor(text, 2)).toBeNull();
-    expect(lineAnchor(text, 99)).toBeNull();
+  it('认 /id、/id#x,y 和本站的完整链接；别的不认', () => {
+    expect(parseRef(`/${A}`)).toEqual({ id: A });
+    expect(parseRef(`/${A}#0.5,0.25`)).toEqual({ id: A, p: { px: 0.5, py: 0.25 } });
+    expect(parseRef(`/${A}#2,0.5`)).toEqual({ id: A });
+    expect(parseRef(`${O}/${A}`, O)).toEqual({ id: A });
+    expect(parseRef(`${O}/${A}`)).toBeNull();
+    expect(parseRef(`https://example.com/${A}`, O)).toBeNull();
+    expect(parseRef(`/x/${A}`)).toBeNull();
+    expect(parseRef(`/${A}0`)).toBeNull();
+    expect(parseRef(`/${A}#top`)).toBeNull();
+  });
+  it('从文字里找：按出现顺序，id 和点都一样的算一次；正文里随手写的 /id 不算', () => {
+    const text = `看 [图](/${B}#0.5,0.5) 和 [它](/${A})\n${O}/${B}#0.5,0.5 又一次\n${O}/${A}，还有 /${B} 和 [外链](https://example.com/${A})\n[再看](/${B})`;
+    expect(refsIn(text, O)).toEqual([{ id: B, p: { px: 0.5, py: 0.5 } }, { id: A }, { id: B }]);
+    expect(refsIn(text)).toEqual([{ id: B, p: { px: 0.5, py: 0.5 } }, { id: A }, { id: B }]);
+    expect(refsIn(`[x](${O}/${A})`)).toEqual([]);
+  });
+  it('加：给行号加在那一行末尾；否则加在最后，前面只有引用就接着写，不然空一行', () => {
+    const md = `[图](/${A})`;
+    expect(addRef('一\n二  \n三', md, 1)).toBe(`一\n二 ${md}\n三`);
+    expect(addRef('一\n\n三', md, 1)).toBe(`一\n\n三\n\n${md}`);
+    expect(addRef('- [ ] 待办\n', md)).toBe(`- [ ] 待办\n\n${md}`);
+    expect(addRef(`一\n\n[它](/${B})`, md)).toBe(`一\n\n[它](/${B})\n${md}`);
+    expect(addRef('', md)).toBe(md);
+  });
+  it('删：只删 id 和点都一样的，连同前面一个空格；删空的行去掉；没删到原样返回', () => {
+    const text = `一 [图](/${A})\n二 [图](/${A}#0.5,0.5)\n\n[它](/${A})\n`;
+    expect(dropRef(text, { id: A }, O)).toBe(`一\n二 [图](/${A}#0.5,0.5)`);
+    expect(dropRef(text, { id: A, p: { px: 0.5, py: 0.5 } }, O)).toBe(`一 [图](/${A})\n二\n\n[它](/${A})`);
+    expect(dropRef(`看 ${O}/${A} 这张`, { id: A }, O)).toBe('看 这张');
+    expect(dropRef(text, { id: B }, O)).toBe(text);
   });
 });
 

@@ -2,14 +2,13 @@
 // 卡片的位置和大小直接量 DOM：拖动、多选一起拖、便利贴变高、图片加载完，线都跟着走
 import clsx from 'clsx';
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { isPointAnchor } from '@/shared/anchors';
-import type { Anchor, Item } from '@/shared/schema';
-import { anchorPos, centerOf, edgeOf, type Rect } from './anchors';
+import type { Item } from '@/shared/schema';
+import { anchorPos, centerOf, edgeOf, isPointAnchor, type PickAnchor, type Rect, type WireAnchor } from './anchors';
 import type { Wire } from './model';
 import { curlyPath, seedOf, sketchy, type Pos } from './path';
 
 type Seg = { key: string; p: Pos; q: Pos; anchoredP: boolean; anchoredQ: boolean; clipP?: Rect; clipQ?: Rect };
-export type TempWire = { from: string; anchor?: Anchor; to: Pos | null };
+export type TempWire = { from: string; anchor?: PickAnchor; to: Pos | null };
 
 export function LinkLayer({ wires, items, canvasRef, world, selected, onSelect, onRemove, temp }: {
   wires: Wire[];
@@ -47,11 +46,13 @@ export function LinkLayer({ wires, items, canvasRef, world, selected, onSelect, 
         const a = cards.get(w.holder), b = cards.get(w.link.to);
         const ia = byId.get(w.holder), ib = byId.get(w.link.to);
         if (!a || !b || !ia || !ib) continue;
+        // 便利贴文字里的引用：这一头接在那个链接上
+        const endA: WireAnchor | undefined = w.ref ? { ref: w.ref } : w.link.a;
         // 图片上的点位置是固定的，先定下来；另一头朝着它去
-        const fixedP = isPointAnchor(w.link.a) ? anchorPos(a.el, a.rect, ia, w.link.a, centerOf(b.rect), toCanvas) : null;
+        const fixedP = isPointAnchor(endA) ? anchorPos(a.el, a.rect, ia, endA, centerOf(b.rect), toCanvas) : null;
         const fixedQ = isPointAnchor(w.link.b) ? anchorPos(b.el, b.rect, ib, w.link.b, centerOf(a.rect), toCanvas) : null;
         const towardP = fixedQ ?? centerOf(b.rect), towardQ = fixedP ?? centerOf(a.rect);
-        const ap = fixedP ?? anchorPos(a.el, a.rect, ia, w.link.a, towardP, toCanvas);
+        const ap = fixedP ?? anchorPos(a.el, a.rect, ia, endA, towardP, toCanvas);
         const aq = fixedQ ?? anchorPos(b.el, b.rect, ib, w.link.b, towardQ, toCanvas);
         out.push({
           key: w.key,

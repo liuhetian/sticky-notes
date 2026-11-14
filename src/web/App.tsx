@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { TRASH } from '@/shared/constants';
 import type { Item, Reminder } from '@/shared/schema';
 import { api, authLost, unwrap } from './api/client';
@@ -18,7 +19,7 @@ import { useMobile } from './lib/hooks';
 import { useDailyCleanup } from './state/cleanup';
 import { useActions } from './state/actions';
 import { qk, useBoards, useItems } from './state/queries';
-import { spotlight } from './state/stores';
+import { jumpStore, spotlight } from './state/stores';
 import { Logo } from './ui/Logo';
 
 export function App() {
@@ -49,7 +50,7 @@ function Main() {
     setBoardId(id);
     localStorage.setItem('clip.board', id);
   }, []);
-  useShareLink(!!boards, switchBoard);
+  useShareLink(!!boards);
 
   const upload = useUploader(useCallback((bid, file, meta) =>
     actions.create(bid, { type: kindForUpload(file.name, file.mime), file, x: meta.x, y: meta.y, ttl: meta.ttl }), [actions]));
@@ -67,6 +68,18 @@ function Main() {
 
   const current = boards?.find((b) => b.id === boardId) ?? boards?.find((b) => b.id !== TRASH);
   const { data: items, isError } = useItems(current?.id);
+
+  // 跳到某个元素（分享链接、便利贴里的引用）：就在眼前这块白板上直接高亮，否则先问服务端在哪块白板
+  const jump = jumpStore.use();
+  useEffect(() => {
+    if (!jump) return;
+    jumpStore.set(null);
+    const id = jump.itemId;
+    if (current && current.id !== TRASH && qc.getQueryData<Item[]>(qk.items(current.id))?.some((x) => x.id === id)) { spotlight(id); return; }
+    unwrap<{ boardId: string }>(api.items[':id'].locate.$get({ param: { id } }))
+      .then(({ boardId }) => { switchBoard(boardId); spotlight(id); })
+      .catch(() => toast.error('这条已经过期或被删了'));
+  }, [jump]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!boards || !current) return <div className="splash"><Logo /></div>;
   const inTrash = current.id === TRASH;
 

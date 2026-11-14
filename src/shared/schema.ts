@@ -27,13 +27,13 @@ export const FileRef = z.object({
 export type FileRef = z.infer<typeof FileRef>;
 
 // ── 连线 ──
-/** 连线接在卡片的哪里：便利贴的某一行（hint 是那一行的文字，行号对不上时靠它找回来），或图片上的一个点（0~1） */
-export const Anchor = z.union([
-  z.object({ line: z.number().int().min(0), hint: z.string().min(1).max(80) }),
-  z.object({ px: z.number().min(0).max(1), py: z.number().min(0).max(1) }),
-]);
+/** 连线接在图片上的哪个点（0~1） */
+export const Anchor = z.object({ px: z.number().min(0).max(1), py: z.number().min(0).max(1) });
 export type Anchor = z.infer<typeof Anchor>;
-/** 存在发起连线的那张卡片上：a 是本端的锚点，b 是对端的；不写就是连整张卡片 */
+/**
+ * 图片、文件、位置连出去的线，存在发起的那张卡片上：a 是本端的锚点，b 是对端的；不写就是连整张卡片。
+ * 便利贴连出去的线不存这里，写在文字里（shared/refs.ts）
+ */
 export const Link = z.object({
   id: z.string().regex(/^[0-9a-f]{8}$/),
   to: ItemId,

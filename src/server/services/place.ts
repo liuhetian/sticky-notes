@@ -12,8 +12,8 @@ const CENTER = { x: 1500, y: 1000 };
 const GAP = 24, STEP = 40, MAX_RING = 80;
 const MIN_X = 8, MIN_Y = 44, MAX = 19_500;
 
-/** 一行字大概多宽（按「几个汉字」算，英文数字算半个多一点） */
-const weight = (line: string) => { let w = 0; for (const ch of line) w += ch.charCodeAt(0) > 0xff ? 1 : 0.55; return w; };
+/** 一行字大概多宽（按「几个汉字」算，英文数字算半个多一点）；markdown 链接的地址不显示，不算 */
+const weight = (line: string) => { let w = 0; for (const ch of line.replace(/\]\([^)]*\)/g, ']')) w += ch.charCodeAt(0) > 0xff ? 1 : 0.55; return w; };
 
 /**
  * 卡片大概多大（和样式对应）。便利贴宽度跟着最长的一行走：最窄 240、最宽 420，一个汉字约 17px、左右留白共 36；

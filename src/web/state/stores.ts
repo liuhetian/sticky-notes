@@ -24,9 +24,13 @@ function persisted<T>(key: string, fallback: T) {
 export type Conflict = { boardId: string; theirs: NoteItem; mine: string };
 export const conflictStore = createStore<Conflict | null>(null);
 
-/** 要高亮的元素：分享链接打开、提醒点「看看」都走这里 */
+/** 要高亮的元素（已经知道在哪块白板）：提醒点「看看」、跳转找到以后都走这里 */
 export const spotlightStore = createStore<{ itemId: string; at: number } | null>(null);
 export const spotlight = (itemId: string) => spotlightStore.set({ itemId, at: Date.now() });
+
+/** 跳到某个元素（还不知道在哪块白板）：分享链接打开、点便利贴里的引用。App 找到所在白板后切过去高亮 */
+export const jumpStore = createStore<{ itemId: string; at: number } | null>(null);
+export const jumpTo = (itemId: string) => jumpStore.set({ itemId, at: Date.now() });
 
 /** 正在翻看的文档 */
 export const docStore = createStore<{ id: string; name: string; size: number } | null>(null);

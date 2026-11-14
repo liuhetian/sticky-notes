@@ -6,7 +6,7 @@ import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, 
 import { toast } from 'sonner';
 import { TRASH } from '@/shared/constants';
 import { parseCoords } from '@/shared/geo';
-import type { Anchor, Board, NoteItem } from '@/shared/schema';
+import type { Board, NoteItem } from '@/shared/schema';
 import { serverNow } from '../../api/client';
 import { useMobile, useTick } from '../../lib/hooks';
 import type { Actions } from '../../state/actions';
@@ -17,7 +17,7 @@ import { Icon } from '../../ui/Icon';
 import { ItemCard } from '../items/ItemCard';
 import { ItemMenu } from '../items/ItemMenu';
 import { UploadingCard } from '../items/bodies';
-import { anchorAt } from '../links/anchors';
+import { anchorAt, type PickAnchor } from '../links/anchors';
 import { LinkLayer } from '../links/LinkLayer';
 import { withDescendants } from '../links/model';
 import { enrichLocation } from '../location/thumbnail';
@@ -60,7 +60,7 @@ export function BoardView({ board, boards, actions, upload, apiRef }: {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [group, setGroup] = useState<{ ids: Set<string>; dx: number; dy: number } | null>(null);
   // 右键点到的是哪张卡片（以及卡片上的哪个锚点）、哪条线；都不是就是空白处，弹新建
-  const [ctx, setCtx] = useState<{ item: string | null; anchor?: Anchor; link: string | null }>({ item: null, link: null });
+  const [ctx, setCtx] = useState<{ item: string | null; anchor?: PickAnchor; link: string | null }>({ item: null, link: null });
   const hand = !mobile && (tool === 'hand' || space);
 
   const scrollRef = useRef<HTMLElement>(null);
@@ -355,7 +355,7 @@ export function BoardView({ board, boards, actions, upload, apiRef }: {
         </div>
       )}
       <div className={clsx('drop', dropping && 'on')}>松手上传</div>
-      {linking.from && <div className="link-hint">点另一张卡片连上线；点在某行字或图片的某个位置上，就接到那里 <kbd>Esc</kbd> 取消</div>}
+      {linking.from && <div className="link-hint">点另一张卡片连上线；点在图片的某个位置上，就接到那里 <kbd>Esc</kbd> 取消</div>}
       <div className={clsx('spot-dim', lit && 'on')} />
 
       {!mobile && (

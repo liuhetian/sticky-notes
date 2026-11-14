@@ -4,6 +4,7 @@
 // txt 排成便利贴能看的样子；图片和文件解出来另存成单独的卡片（有个数上限）；超出的不解，留在压缩包里。压缩包本身太大就不拆
 import { unzipSync } from 'fflate';
 import { MAX_TEXT } from '../../shared/constants';
+import { addRef, refLink, type Ref } from '../../shared/refs';
 
 export const CHAT_ZIP = /^聊天记录.*\.zip$/i;
 /**
@@ -12,6 +13,10 @@ export const CHAT_ZIP = /^聊天记录.*\.zip$/i;
  */
 export const MAX_CHAT_ZIP = 10 * 1024 * 1024;
 export const MAX_PARTS = 30;
+/** 每个引用会让文字变长多少（[]、(/)、16 位 id，再给文件名里要转义的字符留点） */
+const REF_ROOM = 40;
+/** 有没拆的文件时，便利贴末尾的说明，链接到留着的压缩包 */
+export const othersNote = (others: number, zip: Ref) => `（还有 ${others} 个文件没拆出来，${refLink('在连着的压缩包里', zip)}）`;
 
 const TIME = /^(\d{4}年\d{1,2}月\d{1,2}日)\s+(\d{1,2}:\d{2})(?::\d{2})?$/;
 const HEAD = /^[·•・]\s*(.+?)\s*$/;
@@ -61,7 +66,7 @@ const baseName = (path: string) => path.split('/').pop()!.replace(/[\u0000-\u001
 
 export type ChatPart = { name: string; data: Uint8Array };
 export type Chat = {
-  /** 便利贴的文字 */
+  /** 便利贴的文字；末尾没拆文件的说明（othersNote）要等压缩包有了 id 才加，不在这里 */
   text: string;
   /** 要拆出来的图片和文件，按在聊天里出现的顺序 */
   parts: ChatPart[];
@@ -103,13 +108,21 @@ export function readChatZip(buf: ArrayBuffer | null): Chat | null {
     .map(([n, data]) => ({ name: baseName(n), data }))
     .sort((a, b) => at(a.name) - at(b.name));
   let text = formatChat(raw);
-  const tail = others ? `\n\n（还有 ${others} 个文件没拆出来，在连着的压缩包里）` : '';
-  if (text.length + tail.length > MAX_TEXT) text = `${text.slice(0, MAX_TEXT - tail.length - 20)}\n\n……（太长，后面截掉了）`;
-  return { text: text + tail, parts, others };
+  // 之后每个拆出来的文件都要换成引用、末尾还要加说明，先把位置留出来
+  const tail = others ? othersNote(others, { id: '0'.repeat(16) }).length + 2 : 0;
+  const budget = MAX_TEXT - tail - parts.length * REF_ROOM;
+  if (text.length > budget) text = `${text.slice(0, budget - 20)}\n\n……（太长，后面截掉了）`;
+  return { text, parts, others };
 }
 
-/** 文件名出现在便利贴的第几行（从 0 数）：拆出来的图片要连到它所在的那条消息上 */
-export function lineOf(text: string, name: string): number | null {
-  const i = text.split('\n').findIndex((l) => l.includes(name));
-  return i < 0 ? null : i;
+/**
+ * 把文字里第一处还没变成链接的 name 换成指向 ref 的引用（拆出来的文件连到它所在的那条消息上）；
+ * 找不到（文件名被截掉了之类）就加在最后
+ */
+export function linkName(text: string, name: string, ref: Ref): string {
+  const md = refLink(name, ref);
+  for (let i = text.indexOf(name); i >= 0; i = text.indexOf(name, i + 1)) {
+    if (text[i - 1] !== '[') return text.slice(0, i) + md + text.slice(i + name.length);
+  }
+  return addRef(text, md);
 }

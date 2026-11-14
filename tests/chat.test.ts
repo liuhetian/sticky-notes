@@ -2,6 +2,7 @@ import { strToU8, zipSync } from 'fflate';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { formatChat, readChatZip } from '../src/server/services/chat';
 import { newFileId } from '../src/shared/ids';
+import { refsIn } from '../src/shared/refs';
 import { setup } from './helpers';
 
 const TXT = '·小明\n2026年11月12日 18:23\n到了吗\n\n·小红\n2026年11月12日 18:23\n快了\n\n·小红\n2026年11月12日 18:23\n五分钟\n\n·小明\n2026年11月13日 09:01\n[图片] 微信图片_1.jpg\n';
@@ -24,7 +25,7 @@ describe('聊天记录排版', () => {
     const many = readChatZip(zip({ '聊天记录.txt': TXT, ...Object.fromEntries(Array.from({ length: 31 }, (_, i) => [`x/图_${i}.jpg`, new Uint8Array([i])])) }).slice().buffer)!;
     expect(many.parts).toHaveLength(30);
     expect(many.others).toBe(1);
-    expect(many.text).toMatch(/在连着的压缩包里）$/);
+    expect(many.text).not.toContain('压缩包');
     expect(r.text).toMatch(/^\*2026年11月12日\*/);
     expect(readChatZip(zip({ 'a.jpg': new Uint8Array([1]) }).slice().buffer)).toBeNull();
     expect(readChatZip(strToU8('不是压缩包').slice().buffer)).toBeNull();
@@ -58,7 +59,7 @@ describe('聊天记录压缩包进白板', () => {
     expect(Math.hypot(note.x - old.x, note.y - old.y)).toBeLessThan(1200);
   });
 
-  it('网页上传：图片拆成单独的卡片，连到它所在的那条消息上；只有图片的压缩包删掉', async () => {
+  it('网页上传：图片拆成单独的卡片，消息里的文件名变成指向它的引用；只有图片的压缩包删掉', async () => {
     const id = newFileId();
     const z = zip({ '聊天记录.txt': TXT, '聊天记录内的图片、视频和文件/微信图片_1.jpg': new Uint8Array([1, 2, 3]) });
     t.files.upload(id, z);
@@ -71,12 +72,13 @@ describe('聊天记录压缩包进白板', () => {
     const img = items.find((i) => i.type === 'image');
     const note = items.find((i) => i.type === 'note');
     expect(img).toMatchObject({ x: 370, y: 120, file: { name: '微信图片_1.jpg', size: 3, mime: 'image/jpeg' } });
-    expect(note.links).toMatchObject([{ to: img.id, a: { line: note.text.split('\n').length - 1, hint: '[图片] 微信图片_1.jpg' } }]);
+    expect(note.text.split('\n').at(-1)).toBe(`[图片] [微信图片_1.jpg](/${img.id})`);
+    expect(note.links).toBeUndefined();
     expect(t.files.data.has(img.file.id)).toBe(true);
     expect(t.files.data.has(id)).toBe(false);
   });
 
-  it('pdf 这类文件也拆成文件卡片，连到它所在的那条消息上；都拆完了压缩包删掉', async () => {
+  it('pdf 这类文件也拆成文件卡片，引用写在它所在的那条消息里；都拆完了压缩包删掉', async () => {
     const url = (await t.call('POST', '/share/file', { board: '共用', name: '聊天记录_2', ext: 'zip' })).data;
     t.files.upload(url, zip({ '聊天记录.txt': '·小明\n2026年11月14日 10:15\n[文件] 微改.pdf\n', 'a/微改.pdf': new Uint8Array([1, 2]) }));
     const items = await t.itemsOf(await t.firstBoard());
@@ -84,20 +86,20 @@ describe('聊天记录压缩包进白板', () => {
     const note = items.find((i) => i.type === 'note');
     const pdf = items.find((i) => i.type === 'file');
     expect(pdf).toMatchObject({ file: { name: '微改.pdf', size: 2, mime: '' } });
-    expect(note.links).toMatchObject([{ to: pdf.id, a: { hint: '[文件] 微改.pdf' } }]);
+    expect(note.text).toContain(`[文件] [微改.pdf](/${pdf.id})`);
     expect(note.text).not.toContain('压缩包');
     expect(t.files.data.size).toBe(1);
   });
 
-  it('超出上限没拆的：压缩包留着，排在最后，连到末尾的说明上', async () => {
+  it('超出上限没拆的：压缩包留着，排在最后，末尾的说明链接到它', async () => {
     const url = (await t.call('POST', '/share/file', { board: '共用', name: '聊天记录_1', ext: 'zip' })).data;
     t.files.upload(url, zip({ '聊天记录.txt': TXT, ...Object.fromEntries(Array.from({ length: 31 }, (_, i) => [`a/图_${i}.jpg`, new Uint8Array([i])])) }));
     const items = await t.itemsOf(await t.firstBoard());
     const note = items.find((i) => i.type === 'note');
     const kept = items.find((i) => i.type === 'file');
     expect(kept).toMatchObject({ pending: false, file: { name: '聊天记录_1.zip' } });
-    expect(note.links).toHaveLength(31);
-    expect(note.links[30]).toMatchObject({ to: kept.id, a: { hint: '（还有 1 个文件没拆出来，在连着的压缩包里）' } });
+    expect(refsIn(note.text)).toHaveLength(31);
+    expect(note.text.split('\n').at(-1)).toBe(`（还有 1 个文件没拆出来，[在连着的压缩包里](/${kept.id})）`);
   });
 
   it('名字对但不是聊天记录的压缩包，照样当文件', async () => {

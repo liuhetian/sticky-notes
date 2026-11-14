@@ -33,7 +33,8 @@ type FileKey = { id: string; name: string };
 export const fileUrl = (f: FileKey) => `/api/files/${f.id}/${encodeURIComponent(f.name)}`;
 /** 要读图片内容时用（画图、复制图片、转 HEIC）：由本站转发，不跨域 */
 export const rawUrl = (f: FileKey) => `${fileUrl(f)}?raw=1`;
-export const shareUrl = (itemId: string) => `${location.origin}/?item=${itemId}`;
+/** 单条分享链接：网址后面直接跟元素 id；便利贴里的引用 [标题](/id) 也是这个地址 */
+export const shareUrl = (itemId: string) => `${location.origin}/${itemId}`;
 
 /** 把一个文件传进 COS（不显示进度的小文件用，比如地图缩略图）；返回文件 ID */
 export async function putFile(blob: Blob, name: string): Promise<string> {
