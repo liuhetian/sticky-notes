@@ -1,4 +1,4 @@
-// 默认三块白板的图标：共用（两个人）、牛牛（奶牛）、香蕉；自己新建的白板用彩色色块
+// 手画的白板图标，按名字认：共用（两个人）、牛牛（奶牛）、香蕉、大米（小熊脑袋）；其余白板用彩色色块
 const Shared = () => (
   <svg viewBox="0 0 32 32" aria-hidden>
     <circle cx="11.5" cy="11" r="4.6" fill="#7db8f0" />
@@ -36,7 +36,27 @@ const Banana = () => (
   </svg>
 );
 
-const ICONS: Record<string, () => React.JSX.Element> = { 共用: Shared, 牛牛: Cow, 香蕉: Banana };
+const Bear = () => (
+  <svg viewBox="0 0 32 32" aria-hidden>
+    <circle cx="7.8" cy="9.2" r="4.5" fill="#b77a4b" stroke="#5a3a22" strokeWidth="1.2" />
+    <circle cx="24.2" cy="9.2" r="4.5" fill="#b77a4b" stroke="#5a3a22" strokeWidth="1.2" />
+    <circle cx="8" cy="9.4" r="2.2" fill="#f0c3a4" />
+    <circle cx="24" cy="9.4" r="2.2" fill="#f0c3a4" />
+    <ellipse cx="16" cy="17.8" rx="11.4" ry="10.2" fill="#c98b58" stroke="#5a3a22" strokeWidth="1.3" />
+    <path d="M9.6 11.6c1.7-1.5 3.8-2.2 6-2.2" fill="none" stroke="#fff" strokeWidth="1.1" strokeLinecap="round" opacity=".35" />
+    <ellipse cx="16" cy="21.6" rx="5.3" ry="4.1" fill="#f5e1c6" stroke="#5a3a22" strokeWidth="1" />
+    <path d="M13.9 19.5c0-1 4.2-1 4.2 0 0 1.1-1.3 2-2.1 2s-2.1-.9-2.1-2z" fill="#3a271b" />
+    <path d="M16 21.4v1.1m0 0c-.5.8-1.6.9-2.2.3m2.2-.3c.5.8 1.6.9 2.2.3" fill="none" stroke="#3a271b" strokeWidth=".9" strokeLinecap="round" />
+    <circle cx="11.5" cy="15.8" r="1.35" fill="#2d2a25" />
+    <circle cx="20.5" cy="15.8" r="1.35" fill="#2d2a25" />
+    <circle cx="11.95" cy="15.3" r=".42" fill="#fff" />
+    <circle cx="20.95" cy="15.3" r=".42" fill="#fff" />
+    <ellipse cx="8.9" cy="19.9" rx="1.7" ry="1" fill="#f08f8f" opacity=".5" />
+    <ellipse cx="23.1" cy="19.9" rx="1.7" ry="1" fill="#f08f8f" opacity=".5" />
+  </svg>
+);
+
+const ICONS: Record<string, () => React.JSX.Element> = { 共用: Shared, 牛牛: Cow, 香蕉: Banana, 大米: Bear };
 
 export function BoardIcon({ name, index }: { name: string; index: number }) {
   const Svg = ICONS[name];
