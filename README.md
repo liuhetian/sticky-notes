@@ -1,6 +1,6 @@
 # 牛牛便利贴
 
-https://clip.liuhetian.life ：这台设备粘贴，那台设备拿走。功能和规则见 [REQUIREMENTS.md](REQUIREMENTS.md)。wiki（给 AI 的接口说明）在 https://clip.liuhetian.life/wiki/ （源文件 `docs/`），按 [test-wiki 的子服务规范](../test-wiki/main-wiki/docs/new-subservice.md) 接入主 wiki。
+https://clip.liuhetian.life ：这台设备粘贴，那台设备拿走。功能和规则见 [docs/requirements.md](docs/requirements.md)，以它为准。wiki（项目文档和给 AI 的接口说明）在 https://clip.liuhetian.life/wiki/ （源文件 `docs/`，入口 `docs/index.md`，接口说明 `docs/ai-api.md`），按 [test-wiki 的子服务规范](../test-wiki/main-wiki/docs/new-subservice.md) 接入主 wiki。
 
 - 页面和接口：EdgeOne Makers 项目 `clip`（中国大陆加速）
 - 元素数据：EdgeOne Blob（存储名 `clipboard`）

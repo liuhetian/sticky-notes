@@ -3,7 +3,13 @@
   "buildCommand": "",
   "outputDirectory": "./dist",
   "redirects": [
-    { "source": "/wiki", "destination": "/wiki/", "statusCode": 301 }
+    { "source": "/wiki", "destination": "/wiki/", "statusCode": 301 },
+    { "source": "/wiki/requirements", "destination": "/wiki/requirements/", "statusCode": 301 },
+    { "source": "/wiki/ai-api", "destination": "/wiki/ai-api/", "statusCode": 301 },
+    { "source": "/wiki/ops", "destination": "/wiki/ops/", "statusCode": 301 },
+    { "source": "/wiki/dev", "destination": "/wiki/dev/", "statusCode": 301 },
+    { "source": "/wiki/timeline", "destination": "/wiki/timeline/", "statusCode": 301 },
+    { "source": "/wiki/todo", "destination": "/wiki/todo/", "statusCode": 301 }
   ],
   "rewrites": [{ "source": "/*", "destination": "/index.html" }],
   "headers": [

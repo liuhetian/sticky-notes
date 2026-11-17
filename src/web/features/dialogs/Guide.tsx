@@ -57,8 +57,8 @@ export function Guide({ boards }: { boards: Board[] }) {
       <p>在高德地图或苹果地图里看中一个地点，点「分享」再选那条「发到牛牛便利贴」快捷指令（搭法见第二个问题）。地图 App 交过来的是一条链接，白板上会变成一张位置卡片，名字就是地图里的地点名。</p>
       </Q>
       <Q title="怎么让 AI 读写白板？">
-      <p>把 AI 的密码告诉它，让它每个请求的头部都带 {code('X-Password')} = {code('AI的密码#ai')}。这个密码只能用给 AI 的那组接口，看不了别的。</p>
-      <p>然后让它先读说明：{code(`${origin}/wiki/index.md`)}（带上密码时，里面的白板列表是实时的）。人看的版本在 <a href={`${origin}/wiki/`} target="_blank" rel="noreferrer">{`${origin}/wiki/`}</a>。</p>
+      <p>把 AI 的密码放进 AI 所在环境的环境变量 {code('MY_API_KEY')}，它每个请求的头部都会带 {code('X-Password')} = {code('$MY_API_KEY#ai')}。这个密码只能用给 AI 的那组接口，看不了别的。</p>
+      <p>然后让它先读说明：{code(`${origin}/wiki/ai-api.md`)}（带上密码时，里面的白板列表是实时的）。人看的版本在 <a href={`${origin}/wiki/`} target="_blank" rel="noreferrer">{`${origin}/wiki/`}</a>。</p>
       </Q>
     </Shell>
   );

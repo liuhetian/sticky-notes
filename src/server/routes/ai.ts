@@ -1,6 +1,6 @@
 // 给 AI 用的入口 /api/ai/*：和网页用同一套元素操作（services/items.ts），只是换个入口，白板可以写名字，便利贴默认白色。
 // 能调的都列在这里，别的一律 404：彻底删除、清空废纸篓、白板的新建改名删除都不开放。
-// AI 的密码只能调这下面的接口（auth.ts）；共用密码也能调。说明文档在 /wiki/（server/wiki.ts）
+// AI 的密码只能调这下面的接口（auth.ts）；共用密码也能调。说明文档是 /wiki/ai-api.md（docs/ai-api.md，server/wiki.ts）
 import { Hono, type Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { BATCH, BOARD_MAX, TRASH } from '../../shared/constants';
@@ -63,4 +63,4 @@ export const ai = new Hono<Env>()
     c.json(await moveItem(c.get('ctx'), await boardOf(c), c.req.param('id'), c.req.valid('json'))))
   // 领上传地址、下载文件：和网页同一组接口
   .route('/', files)
-  .all('*', (c) => c.json({ error: '没有这个接口：能调的接口见 /wiki/index.md' }, 404));
+  .all('*', (c) => c.json({ error: '没有这个接口：能调的接口见 /wiki/ai-api.md' }, 404));

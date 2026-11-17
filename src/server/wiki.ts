@@ -4,13 +4,28 @@
 // 不用登录也能读；占位符背后的接口在进程内调（边缘函数请求自己的域名会被平台回 404），带上调用者自己的 X-Password 或 cookie，
 // 各自照常鉴权，没带密码就是「加载失败」。一页里所有占位符读存储的次数都算在这一次执行的额度里，别引用读整块白板的接口
 import { Hono } from 'hono';
+import aiApi from '../../docs/ai-api.md?raw';
+import dev from '../../docs/dev.md?raw';
 import index from '../../docs/index.md?raw';
+import ops from '../../docs/ops.md?raw';
+import requirements from '../../docs/requirements.md?raw';
+import timeline from '../../docs/timeline.md?raw';
+import todo from '../../docs/todo.md?raw';
 import { executionCtxOf, type AppType } from './app';
 import type { Env } from './env';
 import { renderMarkdown } from './md-render';
 
-/** 文档原文，键是相对 docs/ 的路径；加一页就在这里加一行（tests/ai-docs.test.ts 会核对 docs/ 里的都在） */
-export const PAGES = new Map<string, string>([['index.md', index]]);
+/** 文档原文，键是相对 docs/ 的路径；加一页就在这里加一行（tests/ai-docs.test.ts 会核对 docs/ 里的都在），
+ * 同时在 edgeone.json 加一条 301、在 zensical.toml 的 nav 加一行。index.md 是项目入口，给 AI 的接口说明是 ai-api.md */
+export const PAGES = new Map<string, string>([
+  ['index.md', index],
+  ['requirements.md', requirements],
+  ['ai-api.md', aiApi],
+  ['ops.md', ops],
+  ['dev.md', dev],
+  ['timeline.md', timeline],
+  ['todo.md', todo],
+]);
 
 export const createWiki = (api: Pick<AppType, 'fetch'>) => new Hono<Env>()
   .get('/wiki/:page{.+\\.md}', async (c) => {

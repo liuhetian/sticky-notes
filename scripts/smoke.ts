@@ -27,13 +27,17 @@ check('manifest', (await fetch(`${BASE}/manifest.webmanifest`)).status === 200);
 const deep = await fetch(`${BASE}/share/abc123/0123456789abcdef`);
 check('分享链接回首页', deep.status === 200 && (await deep.text()).includes('/assets/'), `${deep.status}，${deep.headers.get('cache-control')}`);
 
-// wiki：页面 /wiki/ 是静态站，同一路径的 /wiki/index.md 由边缘函数渲染（静态站里没有 .md，不会盖住函数）
+// wiki：页面 /wiki/ 是静态站，同一路径的 /wiki/<页>.md 由边缘函数渲染；带占位符的是给 AI 的接口说明 ai-api.md（静态站里没有 .md，不会盖住函数）
 const docs = await fetch(`${BASE}/wiki/`);
 const docsHtml = await docs.text();
 check('wiki 页面 /wiki/', docs.status === 200 && docsHtml.includes('javascripts/live.js') && docsHtml.includes('type="text/markdown" href="index.md"'), `${docs.status}，${docs.headers.get('cache-control')}`);
 const bare = await fetch(`${BASE}/wiki`, { redirect: 'manual' });
 check('/wiki 跳到 /wiki/', bare.status === 301 && (bare.headers.get('location') ?? '').endsWith('/wiki/'), `${bare.status} ${bare.headers.get('location')}`);
-const md = async (headers: Record<string, string>) => { const r = await fetch(`${BASE}/wiki/index.md`, { headers }); return { r, text: await r.text() }; };
+const page = await fetch(`${BASE}/wiki/ai-api`, { redirect: 'manual' });
+check('/wiki/ai-api 跳到 /wiki/ai-api/', page.status === 301 && (page.headers.get('location') ?? '').endsWith('/wiki/ai-api/'), `${page.status} ${page.headers.get('location')}`);
+const entry = await fetch(`${BASE}/wiki/index.md`);
+check('wiki 入口 md 链到接口说明', entry.status === 200 && (await entry.text()).includes('](ai-api.md)'), String(entry.status));
+const md = async (headers: Record<string, string>) => { const r = await fetch(`${BASE}/wiki/ai-api.md`, { headers }); return { r, text: await r.text() }; };
 const anon = await md({});
 check('wiki md 不带密码：函数渲染，占位符是「加载失败」', anon.r.status === 200 && (anon.r.headers.get('content-type') ?? '').startsWith('text/markdown') && anon.text.includes('白板：加载失败'),
   `${anon.r.status} ${anon.r.headers.get('content-type')} ${anon.r.headers.get('cache-control')}`);

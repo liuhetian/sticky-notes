@@ -3,16 +3,23 @@
 # site_url 是本服务对外的地址：路径 /wiki/ 要和 server/wiki.ts、edgeone.json 一致；主 wiki 的 build_main.py 从这里读地址来取数。
 # 页面和接口同源，所以不配 api_base：live.js 没有 <meta name="api-base"> 时请求当前站点（自带登录 cookie）。
 # 给 AI 的 /wiki/<页>.md 由边缘函数渲染（src/server/wiki.ts）。
+# 加一页要同步三处：下面的 nav、src/server/wiki.ts 的 PAGES、edgeone.json 的 301。
 
 [project]
 site_name = "牛牛便利贴"
-site_description = "这台设备粘贴，那台设备拿走：给 AI 的读写接口说明（含实时数据）"
+site_description = "这台设备粘贴，那台设备拿走：项目文档和给 AI 的读写接口说明（含实时数据）"
 site_url = "https://clip.liuhetian.life/wiki/"
 use_directory_urls = true
 extra_javascript = ["javascripts/live.js"]
 
 nav = [
-  { "给 AI 的说明" = "index.md" },
+  { "牛牛便利贴" = "index.md" },
+  { "需求" = "requirements.md" },
+  { "给 AI 的接口说明" = "ai-api.md" },
+  { "部署与日常维护" = "ops.md" },
+  { "开发" = "dev.md" },
+  { "时间线" = "timeline.md" },
+  { "待办" = "todo.md" },
 ]
 
 [project.theme]

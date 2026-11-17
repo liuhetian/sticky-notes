@@ -1,6 +1,6 @@
 # 本次改动计划：白板上限、身份、地址整理、给 AI 的接口和文档
 
-写于 2026-11-16。需求已经写进 `REQUIREMENTS.md`（以它为准），这里记背景、实测结论和要做的事，供新开上下文实现。动手前先读 `REQUIREMENTS.md` 和 `README.md`。
+写于 2026-11-16。需求已经写进 `docs/requirements.md`（以它为准），这里记背景、实测结论和要做的事，供新开上下文实现。动手前先读 `docs/requirements.md` 和 `README.md`。
 
 ## 背景
 
