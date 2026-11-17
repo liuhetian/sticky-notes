@@ -74,9 +74,13 @@ export type Chat = {
   others: number;
 };
 
-/** 压缩包 → 聊天记录；没有能读的 txt（不是聊天记录）返回 null */
-export function readChatZip(buf: ArrayBuffer | null): Chat | null {
+/**
+ * 压缩包 → 聊天记录；没有能读的 txt（不是聊天记录）返回 null。
+ * room 是白板上还能放几张卡片：最多拆这么多（也不超过 MAX_PARTS）；有没拆的文件时压缩包本身也要留在白板上，再让出一个位置
+ */
+export function readChatZip(buf: ArrayBuffer | null, room = Infinity): Chat | null {
   if (!buf) return null;
+  const max = Math.min(MAX_PARTS, room);
   let others = 0, taken = 0;
   let files: Record<string, Uint8Array>;
   try {
@@ -85,7 +89,7 @@ export function readChatZip(buf: ArrayBuffer | null): Chat | null {
         const name = fixName(f.name);
         if (name.endsWith('/') || name.startsWith('__MACOSX/')) return false;
         if (/\.txt$/i.test(name) && f.originalSize <= 2 * 1024 * 1024) return true;
-        if (taken < MAX_PARTS) {
+        if (taken < max) {
           taken++;
           return true;
         }
@@ -107,6 +111,8 @@ export function readChatZip(buf: ArrayBuffer | null): Chat | null {
     .filter(([n]) => !/\.txt$/i.test(n))
     .map(([n, data]) => ({ name: baseName(n), data }))
     .sort((a, b) => at(a.name) - at(b.name));
+  // 压缩包要留下（有没拆的），而位置刚好被拆出来的占满：聊天里最后出现的那个不拆了，给压缩包让位
+  if (others && parts.length && parts.length >= room) { parts.pop(); others++; }
   let text = formatChat(raw);
   // 之后每个拆出来的文件都要换成引用、末尾还要加说明，先把位置留出来
   const tail = others ? othersNote(others, { id: '0'.repeat(16) }).length + 2 : 0;

@@ -14,7 +14,7 @@ export function wiresOf(items: Item[]): Wire[] {
   for (const it of items) {
     if (it.type === 'note') {
       // 便利贴身上即使还留着老的 links 也不看：它的关系只认文字
-      for (const ref of refsIn(it.text, location.origin)) {
+      for (const ref of refsIn(it.text)) {
         if (ref.id === it.id || !ids.has(ref.id)) continue;
         // key 要能当 DOM id 用，也要以目标 id 打头（seedOf 靠它定线往哪边弯）
         const key = `${ref.id}-${it.id}${ref.p ? `-${Math.round(ref.p.px * 1000)}-${Math.round(ref.p.py * 1000)}` : ''}`;

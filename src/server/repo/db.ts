@@ -37,10 +37,10 @@ export class Db {
     await this.blob.setJSON('boards.json', { boards: sorted });
   }
 
-  /** 按 id 找，找不到再按名字找（快捷指令里写的是名字） */
+  /** 按 id 找，找不到再按名字找（快捷指令和 AI 写的是名字） */
   async findBoard(idOrName: string): Promise<Board | undefined> {
     const boards = await this.boards();
-    return boards.find((b) => b.id === idOrName) ?? boards.find((b) => b.name === idOrName && b.id !== TRASH);
+    return boards.find((b) => b.id === idOrName) ?? boards.find((b) => b.name === idOrName);
   }
 
   // ── 元素 ──
@@ -54,9 +54,15 @@ export class Db {
     return this.blob.get(itemKey(boardId, id), { type: 'json' });
   }
 
-  /** 一次读这几个；调用方负责分批（一次执行读不了太多） */
+  /**
+   * 一次读这几个（最多 BATCH 个，调用方管）。新建的 store 还没凭据时并发读，每个读都会各自去换一次凭据，
+   * 一个元素就算两个请求：所以先单独读第一个把凭据取好，再并发读其余的
+   */
   async getItems(boardId: string, ids: string[]): Promise<Item[]> {
-    return (await Promise.all(ids.map((id) => this.getItem(boardId, id)))).filter((x): x is Item => !!x);
+    if (!ids.length) return [];
+    const first = await this.getItem(boardId, ids[0]);
+    const rest = await Promise.all(ids.slice(1).map((id) => this.getItem(boardId, id)));
+    return [first, ...rest].filter((x): x is Item => !!x);
   }
 
   /** prev 是这个元素写之前的样子（没有就是新建），用来同步提醒索引 */
@@ -74,11 +80,6 @@ export class Db {
   async relocate(prev: Item, next: Item) {
     await this.putItem(next, prev);
     if (next.boardId !== prev.boardId) await this.blob.delete(itemKey(prev.boardId, prev.id));
-  }
-
-  /** 分享链接只带元素 id：list 一次 items/，找到它在哪块白板 */
-  async locate(id: string): Promise<string | null> {
-    return (await this.everything()).find((e) => e.id === id)?.boardId ?? null;
   }
 
   /** 全站所有元素在哪（只列名字，一次请求），按元素 id 排好：清理任务按这个顺序一批批过 */

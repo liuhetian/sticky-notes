@@ -8,6 +8,7 @@
 /* 便利贴的颜色：卡片和冲突弹窗里的预览共用 */
 .note.pink, .note-preview.pink { background: var(--pink); } .note.blue, .note-preview.blue { background: var(--blue); } .note.green, .note-preview.green { background: var(--green); }
 .note.purple, .note-preview.purple { background: var(--purple); } .note.orange, .note-preview.orange { background: var(--orange); }
+.note.white, .note-preview.white { background: var(--white); }
 .tape { position: absolute; top: -10px; left: 50%; width: 78px; height: 22px; margin-left: -39px; background: rgba(255, 255, 255, .58); box-shadow: 0 1px 2px rgba(0, 0, 0, .06); transform: rotate(-4deg); }
 .md { max-height: 440px; overflow: auto; font-size: 17px; line-height: 1.65; color: #3a3326; word-break: break-word; }
 .md > :first-child { margin-top: 0; }
@@ -42,6 +43,7 @@
 
 .foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; font-size: 12.5px; color: rgba(0, 0, 0, .42); }
 .when { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.when .by { margin-right: 6px; font-weight: 600; }
 .foot-r { display: inline-flex; align-items: center; gap: 5px; flex: none; }
 .todo-count { padding: 1px 7px; border-radius: 999px; background: rgba(0, 0, 0, .05); font-size: 12px; white-space: nowrap; }
 .todo-count.all { background: #d8f0cf; color: #2f7a2a; }
@@ -65,7 +67,7 @@
 .ib.danger:hover { background: #fde8e5; color: #c0392b; }
 .swatch { width: 18px; height: 18px; margin: 0 2px; padding: 0; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, .14); }
 .swatch.yellow { background: var(--yellow-d); } .swatch.pink { background: var(--pink-d); } .swatch.blue { background: var(--blue-d); }
-.swatch.green { background: var(--green-d); } .swatch.purple { background: var(--purple-d); } .swatch.orange { background: var(--orange-d); }
+.swatch.green { background: var(--green-d); } .swatch.purple { background: var(--purple-d); } .swatch.orange { background: var(--orange-d); } .swatch.white { background: var(--white-d); }
 .swatch.on { box-shadow: 0 0 0 2px var(--ink); }
 .sep { width: 1px; height: 18px; margin: 0 4px; background: var(--line); }
 

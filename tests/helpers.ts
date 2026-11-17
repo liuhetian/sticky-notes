@@ -40,14 +40,19 @@ export class MemoryFiles implements FileStore {
   }
 }
 
-export const ENV = { SITE_PASSWORD: 'pw-test', COOKIE_SECRET: 'cookie-secret', COS_BUCKET: 'b', COS_REGION: 'r', COS_SECRET_ID: 'i', COS_SECRET_KEY: 'k' };
+export const ENV = {
+  SITE_PASSWORD: 'pw-test', AI_PASSWORD: 'ai-test', NAMES: 'banana:香蕉,niuniu:牛牛,ai:AI', WEB_NAMES: 'banana,niuniu',
+  COOKIE_SECRET: 'cookie-secret', COS_BUCKET: 'b', COS_REGION: 'r', COS_SECRET_ID: 'i', COS_SECRET_KEY: 'k',
+};
+/** 默认以牛牛的身份调 */
+export const AS = (name = 'niuniu', password = 'pw-test') => ({ 'X-Password': `${password}#${name}` });
 
 export function setup() {
   const blob = new FakeBlob();
   const files = new MemoryFiles();
   const pending: Promise<unknown>[] = [];
   const app = createApp(() => ({ db: new Db(blob), files, defer: (p) => { pending.push(p.catch(() => {})); } }));
-  async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = { 'X-Password': 'pw-test' }, env = ENV) {
+  async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = AS(), env: Record<string, string> = ENV) {
     const res = await app.request(`/api${path}`, {
       method, headers: { ...headers, ...(body ? { 'Content-Type': 'application/json' } : {}) },
       body: body ? JSON.stringify(body) : undefined,
@@ -60,14 +65,18 @@ export function setup() {
     return { status: res.status, data, res };
   }
   const boardIds = async () => ((await call('GET', '/boards')).data.boards as { id: string }[]).map((b) => b.id);
-  /** 和页面一样：先拿 etags，再按 id 取 */
-  const itemsOf = async (boardId: string) => {
+  /** 和页面一样：先拿 etags，再按 id 一次取完 */
+  const itemsOf = async (boardId: string): Promise<any[]> => {
     const ids = ((await call('GET', `/boards/${boardId}/etags`)).data.items as { id: string }[]).map((e) => e.id);
+    return ids.length ? (await call('GET', `/boards/${boardId}/items?ids=${ids.slice(0, BATCH).join(',')}`)).data.items : [];
+  };
+  /** 往白板上放 n 张便利贴（排成一行，不挑位置）；返回建好的 */
+  const fill = async (boardId: string, n: number) => {
     const out: any[] = [];
-    for (let i = 0; i < ids.length; i += BATCH) out.push(...(await call('GET', `/boards/${boardId}/items?ids=${ids.slice(i, i + BATCH).join(',')}`)).data.items);
+    for (let i = 0; i < n; i++) out.push((await call('POST', `/boards/${boardId}/items`, note({ text: `第 ${i} 张`, x: 100 + i * 10, y: 100 }))).data);
     return out;
   };
-  return { blob, files, app, call, boardIds, itemsOf, firstBoard: async () => (await boardIds())[0] };
+  return { blob, files, app, call, boardIds, itemsOf, fill, firstBoard: async () => (await boardIds())[0] };
 }
 
 export const note = (over: Record<string, unknown> = {}) => ({ type: 'note', text: '你好', x: 100, y: 100, ...over });

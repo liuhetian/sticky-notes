@@ -1,18 +1,21 @@
 // 便利贴正文：react-markdown + GFM（待办列表）+ 换行保留；不渲染原文里的 HTML。
 // 每个块都带上它在原文里的起始行号和行数（data-line / data-lines）：勾待办、从某一行拉线都靠它定位。
-// 指向本站元素的链接（[标题](/id)、贴进来的分享链接）是引用：点了跳到那个元素，连线也从这个链接画出去
+// 指向同一块白板上元素的链接 [标题](/id) 是引用：点了让那张卡片闪动，连线也从这个链接画出去
 import { createContext, createElement, useContext, useEffect, useRef, useState, type ComponentProps } from 'react';
 import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
-import { parseRef, refKey, refPath } from '@/shared/refs';
+import { parseRef, refKey } from '@/shared/refs';
 import type { NoteItem, PatchItem } from '@/shared/schema';
 import { allTasksDone, continueTask, normalizeBareTasks, toggleTaskLine } from '@/shared/todo';
+import { sharePath } from '../../api/client';
 import { useMobile } from '../../lib/hooks';
 import { jumpTo } from '../../state/stores';
 
 const LineCtx = createContext<number | null>(null);
 const ToggleCtx = createContext<((line: number, checked: boolean) => void) | null>(null);
+/** 便利贴在哪块白板：引用只在这块白板里找 */
+const BoardCtx = createContext('');
 
 function TaskBox(props: ComponentProps<'input'>) {
   const line = useContext(LineCtx);
@@ -32,17 +35,18 @@ const lineProps = (node: ExtraProps['node']) => {
 const block = (tag: string) => ({ node, ...p }: ExtraProps & Record<string, unknown>) => createElement(tag, { ...p, ...lineProps(node) });
 
 function Link({ href, children, ...p }: ComponentProps<'a'>) {
-  const ref = href ? parseRef(href, location.origin) : null;
+  const boardId = useContext(BoardCtx);
+  const ref = href ? parseRef(href) : null;
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   if (!ref) return <a {...p} href={href} target="_blank" rel="noopener noreferrer" onClick={stop} onDoubleClick={stop}>{children}</a>;
   return (
-    <a {...p} href={refPath(ref)} className="ref" data-ref={refKey(ref)} onDoubleClick={stop} onClick={(e) => {
+    // 地址写成分享链接：按着 Ctrl/Cmd 点、中键点，浏览器在新标签页打开它
+    <a {...p} href={sharePath(boardId, ref.id)} className="ref" data-ref={refKey(ref)} onDoubleClick={stop} onClick={(e) => {
       e.stopPropagation();
-      // 按着 Ctrl/Cmd/Shift 交给浏览器：新标签打开 /<id>，在那边跳过去
       if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
       e.preventDefault();
       // 只让目标闪，不压暗画面：要看的正是这张便利贴和它连着的卡片
-      jumpTo(ref.id, false);
+      jumpTo(boardId, ref.id, false);
     }}>{children}</a>
   );
 }
@@ -58,12 +62,14 @@ const components: Components = {
   ...Object.fromEntries(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'tr'].map((t) => [t, block(t)])),
 };
 
-export function Markdown({ text, onToggle }: { text: string; onToggle?: (line: number, checked: boolean) => void }) {
+export function Markdown({ text, boardId, onToggle }: { text: string; boardId: string; onToggle?: (line: number, checked: boolean) => void }) {
   if (!text.trim()) return <p className="placeholder">空白便利贴，双击写点什么</p>;
   return (
-    <ToggleCtx.Provider value={onToggle ?? null}>
-      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={components}>{normalizeBareTasks(text)}</ReactMarkdown>
-    </ToggleCtx.Provider>
+    <BoardCtx.Provider value={boardId}>
+      <ToggleCtx.Provider value={onToggle ?? null}>
+        <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={components}>{normalizeBareTasks(text)}</ReactMarkdown>
+      </ToggleCtx.Provider>
+    </BoardCtx.Provider>
   );
 }
 
@@ -86,7 +92,7 @@ export function NoteContent({ item, editing, setEditing, readOnly, patch, onThro
   return (
     <>
       <div className="md" onDoubleClick={() => !readOnly && setEditing(true)}>
-        <Markdown text={item.text} onToggle={readOnly ? undefined : (line, checked) => patch({ text: toggleTaskLine(item.text, line, checked), baseRev: item.rev })} />
+        <Markdown text={item.text} boardId={item.boardId} onToggle={readOnly ? undefined : (line, checked) => patch({ text: toggleTaskLine(item.text, line, checked), baseRev: item.rev })} />
       </div>
       {!readOnly && allTasksDone(item.text) && (
         <button type="button" className="throw" onClick={(e) => { e.stopPropagation(); onThrow(); }}>🎉 全部完成 · 丢入废纸篓</button>

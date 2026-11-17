@@ -1,9 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { TRASH, fileKind } from '@/shared/constants';
+import { TRASH, fileKind, isAlive } from '@/shared/constants';
 import type { Item } from '@/shared/schema';
-import { api, authLost, unwrap } from './api/client';
+import { api, authLost, serverNow, unwrap } from './api/client';
 import { Login } from './features/auth/Login';
 import { BoardView } from './features/board/Board';
 import { ConflictDialog } from './features/dialogs/ConflictDialog';
@@ -16,21 +16,22 @@ import { Sidebar } from './features/sidebar/Sidebar';
 import { useUploader } from './features/upload/useUploader';
 import { useDailyCleanup } from './state/cleanup';
 import { useActions } from './state/actions';
-import { qk, useBoards } from './state/queries';
-import { boardStore, jumpStore, spotlight } from './state/stores';
+import { itemsQuery, useBoards } from './state/queries';
+import { boardStore, jumpStore, meStore, spotlight } from './state/stores';
 import { Logo } from './ui/Logo';
 
 export function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
   const qc = useQueryClient();
   useEffect(() => {
-    unwrap(api.me.$get()).then(() => setAuthed(true), () => setAuthed(false));
+    // 登录过、cookie 里有名字才算登录；名字记下来，本机先改界面时卡片角落先显示自己
+    unwrap<{ name: string }>(api.me.$get()).then(({ name }) => { meStore.set(name); setAuthed(true); }, () => setAuthed(false));
     const lost = () => { setAuthed(false); qc.clear(); };
     authLost.addEventListener('lost', lost);
     return () => authLost.removeEventListener('lost', lost);
   }, [qc]);
   if (authed === null) return <div className="splash"><Logo /></div>;
-  if (!authed) return <Login onDone={() => setAuthed(true)} />;
+  if (!authed) return <Login onDone={(name) => { meStore.set(name); setAuthed(true); }} />;
   return <Main />;
 }
 
@@ -50,17 +51,22 @@ function Main() {
 
   const current = boards?.find((b) => b.id === boardId) ?? boards?.find((b) => b.id !== TRASH);
 
-  // 跳到某个元素（分享链接、便利贴里的引用）：就在眼前这块白板上直接高亮，否则先问服务端在哪块白板
+  // 跳到某块白板上的某个元素（分享链接、便利贴里的引用）：切过去，等那块白板的数据到了再高亮；只认这块白板，不去别处找
   const jump = jumpStore.use();
   useEffect(() => {
-    if (!jump) return;
+    if (!jump || !boards) return;
     jumpStore.set(null);
-    const { itemId: id, dim } = jump;
-    if (current && current.id !== TRASH && qc.getQueryData<Item[]>(qk.items(current.id))?.some((x) => x.id === id)) { spotlight(id, dim); return; }
-    unwrap<{ boardId: string }>(api.items[':id'].locate.$get({ param: { id } }))
-      .then(({ boardId: found }) => { boardStore.set(found); spotlight(id, dim); })
-      .catch(() => toast.error('这条已经过期或被删了'));
-  }, [jump]);
+    const { boardId: to, itemId: id, dim } = jump;
+    if (!boards.some((b) => b.id === to)) { toast.error('这块白板不存在了'); return; }
+    boardStore.set(to);
+    if (!id) return;
+    const has = (list?: Item[]) => !!list?.some((x) => x.id === id && isAlive(x, serverNow()));
+    // 本机已经有就直接高亮；没有再去服务端取一次确认（可能是别人刚放上去的）
+    if (has(qc.getQueryData<Item[]>(itemsQuery(qc, to).queryKey))) { spotlight(id, dim); return; }
+    qc.fetchQuery(itemsQuery(qc, to))
+      .then((list) => (has(list) ? spotlight(id, dim) : toast.error('这个元素不存在了')))
+      .catch((e) => toast.error(e instanceof Error ? e.message : String(e)));
+  }, [jump, boards]);
   if (!boards || !current) return <div className="splash"><Logo /></div>;
   const inTrash = current.id === TRASH;
 

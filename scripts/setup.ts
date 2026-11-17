@@ -17,32 +17,35 @@ async function poll<T>(what: string, times: number, ms: number, fn: () => Promis
   throw new Error(`${what}：等了 ${Math.round((times * ms) / 60000)} 分钟还没好，稍后重跑`);
 }
 
+/** .env 里写了才下发、没写就沿用项目里已有的：共用密码、AI 的密码、名字映射、登录页可选的名字 */
+const PASSED = ['SITE_PASSWORD', 'AI_PASSWORD', 'NAMES', 'WEB_NAMES'];
+
 async function ensureProject(makers: MakersClient) {
   const b = bucket();
   const cos = [
     { key: 'COS_BUCKET', value: b.name }, { key: 'COS_REGION', value: b.region },
     { key: 'COS_SECRET_ID', value: b.secretId }, { key: 'COS_SECRET_KEY', value: b.secretKey },
   ];
+  const passed = PASSED.flatMap((key) => (process.env[key] ? [{ key, value: process.env[key]! }] : []));
   let project = await findProject(makers, PROJECT);
   if (!project) {
-    const password = process.env.SITE_PASSWORD;
-    if (!password) throw new Error('新建项目要有站点密码：在 .env 里写 SITE_PASSWORD');
+    if (!process.env.SITE_PASSWORD || !process.env.NAMES) throw new Error('新建项目要有站点密码和名字映射：在 .env 里写 SITE_PASSWORD、NAMES');
     const { projectId } = await makers.projects.create({
       name: PROJECT,
       area: 'mainland',
-      initialEnvVars: [{ key: 'SITE_PASSWORD', value: password }, { key: 'COOKIE_SECRET', value: randomBytes(32).toString('hex') }, ...cos],
+      initialEnvVars: [...passed, { key: 'COOKIE_SECRET', value: randomBytes(32).toString('hex') }, ...cos],
     });
     project = await makers.projects.get({ projectId });
     console.log(`1. 新建项目 ${PROJECT}（${projectId}），加速区域：中国大陆`);
   } else {
-    const given = [...cos, ...(process.env.SITE_PASSWORD ? [{ key: 'SITE_PASSWORD', value: process.env.SITE_PASSWORD }] : [])];
+    const given = [...cos, ...passed];
     const have = await projectEnv(makers, project.projectId);
     const changed = given.filter((e) => have[e.key] !== e.value);
     if (changed.length) await makers.projects.setEnvs({ projectId: project.projectId, envVars: changed });
     console.log(`1. 项目 ${PROJECT} 已在（${project.projectId}），环境变量改了：${changed.map((e) => e.key).join('、') || '无'}`);
   }
   const have = await projectEnv(makers, project!.projectId);
-  const lack = ['SITE_PASSWORD', 'COOKIE_SECRET', ...cos.map((e) => e.key)].filter((k) => !have[k]);
+  const lack = ['SITE_PASSWORD', 'NAMES', 'COOKIE_SECRET', ...cos.map((e) => e.key)].filter((k) => !have[k]);
   if (lack.length) throw new Error(`项目缺环境变量 ${lack.join('、')}`);
   return project!;
 }

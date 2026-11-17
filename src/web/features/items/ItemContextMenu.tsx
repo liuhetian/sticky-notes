@@ -13,7 +13,7 @@ import { labelOf, otherEnd, wiresFor, type Wire } from '../links/model';
 import { kindActions, moveTargets, moveToBoard, shareAction, trashActions, type ItemAction } from './itemActions';
 import { MoveItems, ReminderItems, TtlItems } from './Pickers';
 
-const COLOR_NAMES: Record<(typeof COLORS)[number], string> = { yellow: '黄', pink: '粉', blue: '蓝', green: '绿', purple: '紫', orange: '橙' };
+const COLOR_NAMES: Record<(typeof COLORS)[number], string> = { yellow: '黄', pink: '粉', blue: '蓝', green: '绿', purple: '紫', orange: '橙', white: '白' };
 
 const Rows = ({ list }: { list: ItemAction[] }) => (
   <>{list.map((a) => <MenuRow key={a.key} kit={CM} icon={a.icon} danger={a.danger} onSelect={a.run}>{a.label}</MenuRow>)}</>

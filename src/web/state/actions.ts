@@ -8,7 +8,7 @@ import { itemBase, mergePatch } from '@/shared/items';
 import type { Board, CreateItem, Item, MoveItem, PatchItem, Reminder } from '@/shared/schema';
 import { ApiError, api, drain, serverNow, unwrap } from '../api/client';
 import { qk } from './queries';
-import { conflictStore } from './stores';
+import { conflictStore, meStore } from './stores';
 import { pushUndo, undoEntry } from './undo';
 import { enqueue } from './writes';
 
@@ -20,13 +20,13 @@ const ownRev = new Map<string, number>();
 const queued = new Map<string, PatchItem[]>();
 
 /** 和服务端同一套合并规则，界面先变成服务端存好以后的样子 */
-const applyPatch = (item: Item, p: PatchItem) => mergePatch(item, p, serverNow());
+const applyPatch = (item: Item, p: PatchItem) => mergePatch(item, p, serverNow(), meStore.get());
 const withQueued = (item: Item) => (queued.get(item.id) ?? []).reduce(applyPatch, item);
 
-/** 新建的元素在服务端确认之前先长这样（rev 为 0） */
+/** 新建的元素在服务端确认之前先长这样（rev 为 0）。网页新建总是带位置 */
 function localItem(boardId: string, id: string, b: CreateItem): Item {
   const now = serverNow();
-  const base = itemBase({ id, boardId, x: b.x, y: b.y, now, expiresAt: expiryFrom(b.ttl === undefined ? DEFAULT_TTL : b.ttl, now), rev: 0 });
+  const base = itemBase({ id, boardId, x: b.x ?? 0, y: b.y ?? 0, now, expiresAt: expiryFrom(b.ttl === undefined ? DEFAULT_TTL : b.ttl, now), by: meStore.get(), rev: 0 });
   if (b.type === 'note') return { ...base, type: 'note', text: b.text ?? '', color: b.color ?? 'yellow' };
   if (b.type === 'location') return { ...base, type: 'location', lat: b.lat, lng: b.lng, name: b.name ?? '' };
   return { ...base, type: b.type, file: b.file };
@@ -46,6 +46,11 @@ export function createActions(qc: QueryClient) {
   const find = (boardId: string, id: string) => qc.getQueryData<Item[]>(qk.items(boardId))?.find((x) => x.id === id);
   const refresh = (boardId: string) => qc.invalidateQueries({ queryKey: qk.items(boardId) });
   const fail = (e: unknown) => toast.error(e instanceof Error ? e.message : String(e));
+  /** 删进废纸篓以后：废纸篓超出 50 个就把最早进去的真删，接着调到不超；不打扰人，失败了等每天的清理 */
+  const pruneTrash = () => drain(async () => {
+    const r = await enqueue(() => unwrap<{ removed: number; remaining: number }>(api.boards[':id'].prune.$post({ param: { id: TRASH } })));
+    return r.remaining > 0 && r.removed > 0;
+  }).catch(() => {}).finally(() => refresh(TRASH));
 
   async function create(boardId: string, body: CreateItem, o: Opt = {}) {
     const id = body.id ?? newId();
@@ -161,7 +166,7 @@ export function createActions(qc: QueryClient) {
       if (!failed.length && !o.quiet) toast(list.length > 1 ? `已彻底删除 ${list.length} 项` : '已彻底删除');
       return;
     }
-    refresh(TRASH);
+    if (done.length) pruneTrash(); else refresh(TRASH);
     if (!done.length) return;
     const label = done.length > 1 ? `删除 ${done.length} 项` : '删除';
     const entry = o.record === false ? null : pushUndo({ label, run: async () => { for (const d of done) await moveBack(d.original, d.trashed); } });
@@ -180,7 +185,7 @@ export function createActions(qc: QueryClient) {
       ownRev.set(r.item.id, r.item.rev);
       // 目标白板的数据已经在本机：直接放进去，不等下一轮同步
       if (qc.getQueryData(qk.items(r.to))) upsert(r.to, r.item);
-      refresh(r.to);
+      if (r.to === TRASH) pruneTrash(); else refresh(r.to);
       qc.invalidateQueries({ queryKey: qk.reminders });
       if (o.record !== false && boardId !== TRASH) {
         pushUndo({ label: r.to === TRASH ? '丢入废纸篓' : '移到其他白板', run: () => moveBack(item, r.item) });
@@ -193,12 +198,12 @@ export function createActions(qc: QueryClient) {
     }
   }
 
-  /** 提醒点了「知道了」：卡片在本机就照常改；不在本机（别的白板上的）直接发 */
+  /** 提醒点了「知道了」：卡片在本机就照常改；不在本机（别的白板上的、已经没了的）交给服务端，元素没了它会把这条提醒删掉 */
   async function ackReminder(r: Reminder) {
     const it = find(r.boardId, r.itemId);
     if (it) { await patch(r.boardId, it, { remindDone: true }); return; }
     try {
-      await enqueue(() => unwrap(api.boards[':id'].items[':itemId'].$patch({ param: { id: r.boardId, itemId: r.itemId }, json: { remindDone: true } })));
+      await enqueue(() => unwrap(api.reminders.done.$post({ json: r })));
     } catch (e) { fail(e); }
     qc.invalidateQueries({ queryKey: qk.reminders });
   }
@@ -239,7 +244,7 @@ export function createActions(qc: QueryClient) {
         return r.remaining > 0 && r.trashed > 0;
       });
       await qc.invalidateQueries({ queryKey: qk.boards });
-      refresh(TRASH);
+      if (trashed) pruneTrash();
       toast(trashed ? `白板已删除，上面的 ${trashed} 项进了废纸篓` : '白板已删除');
       return true;
     } catch (e) { fail(e); return false; }

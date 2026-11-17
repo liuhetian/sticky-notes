@@ -12,7 +12,7 @@ export function ConflictDialog({ actions }: { actions: Actions }) {
       {c && (
         <>
           <div className="conflict-cols">
-            <div><div className="mlabel">对方的（现在存着的）</div><div className={`note-preview ${c.theirs.color}`}><div className="md"><Markdown text={c.theirs.text} /></div></div></div>
+            <div><div className="mlabel">对方的（现在存着的）</div><div className={`note-preview ${c.theirs.color}`}><div className="md"><Markdown text={c.theirs.text} boardId={c.boardId} /></div></div></div>
             <div><div className="mlabel">你刚写的</div><div className="note-preview mine"><pre>{c.mine}</pre></div></div>
           </div>
           <div className="dialog-actions">

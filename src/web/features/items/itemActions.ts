@@ -71,7 +71,7 @@ export function trashActions(item: Item, boards: Board[], actions: Actions): Ite
 }
 
 export const shareAction = (item: Item, mobile: boolean): ItemAction =>
-  ({ key: 'share', icon: 'link', label: '复制分享链接', run: () => shareLink(shareUrl(item.id), mobile) });
+  ({ key: 'share', icon: 'link', label: '复制分享链接', run: () => shareLink(shareUrl(item.boardId, item.id), mobile) });
 
 /** 能移过去的白板：别的普通白板 */
 export const moveTargets = (boards: Board[], boardId: string) => boards.filter((b) => b.id !== boardId && b.id !== TRASH);

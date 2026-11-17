@@ -8,7 +8,7 @@ export const DEFAULT_TTL = 7 * 86400;
 export const TTL_CHOICES = [600, 3600, 86400, 7 * 86400, 30 * 86400] as const;
 /** 进了废纸篓再留多久才真删（毫秒） */
 export const TRASH_KEEP = 30 * DAY;
-export const COLORS = ['yellow', 'pink', 'blue', 'green', 'purple', 'orange'] as const;
+export const COLORS = ['yellow', 'pink', 'blue', 'green', 'purple', 'orange', 'white'] as const;
 export const INLINE_IMAGE_EXT: Record<string, string> = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp',
   // iPhone 照片原格式；Safari 能直接显示，其他浏览器由前端转成 JPEG 再显示
@@ -28,10 +28,14 @@ export function previewKind(name: string): PreviewKind | null {
   return (MEDIA_EXT[ext]?.split('/')[0] as PreviewKind | undefined) ?? null;
 }
 /**
- * 边缘函数一次执行大约只能发 64 个请求，超了存储就报 502；而读一个元素有时要算两个请求
- * （线上实测：一次读 32 个没事，34 个开始失败）。所以凡是要读很多元素的地方都分批，一批最多这么多个
+ * 一次执行最多读几个元素。边缘函数一次执行大约只能发 62 个请求（线上实测在 62~64 之间浮动），超了存储就报错。
+ * 新建的 store 还没凭据时并发读，每个读都会各自去换一次凭据（一个元素算两个请求），所以 Db.getItems 先单独读一个把凭据取好再并发。
+ * 这样实测一次读 58 个都稳；定 50，读整块白板 = 换凭据 1 + 列名字 1 + 读 50，顺手的写操作还剩几次余量
  */
-export const BATCH = 25;
+export const BATCH = 50;
+/** 每块白板最多放几个元素（废纸篓也是）。不能大于 BATCH：读白板要一次读完 */
+export const BOARD_MAX = 50;
+export const BOARD_FULL = `这块白板满了（${BOARD_MAX} 个），先清理或换一块`;
 /** 文件 ID：「base36 时间戳-24 位 hex」，从 key 就能看出多旧 */
 export const FILE_ID_RE = /^[0-9a-z]{6,12}-[0-9a-f]{24}$/;
 export const ITEM_ID_RE = /^[0-9a-f]{16}$/;

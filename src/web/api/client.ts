@@ -43,8 +43,9 @@ export const fileUrl = (f: FileKey) => `/api/files/${f.id}/${encodeURIComponent(
 export const downloadUrl = (f: FileKey) => `${fileUrl(f)}?dl=1`;
 /** 要读图片内容时用（画图、复制图片、转 HEIC）：由本站转发，不跨域 */
 export const rawUrl = (f: FileKey) => `${fileUrl(f)}?raw=1`;
-/** 单条分享链接：网址后面直接跟元素 id；便利贴里的引用 [标题](/id) 也是这个地址 */
-export const shareUrl = (itemId: string) => `${location.origin}/${itemId}`;
+/** 分享链接带着白板：/share/白板id/元素id；只分享白板就是 /share/白板id */
+export const sharePath = (boardId: string, itemId?: string) => `/share/${boardId}${itemId ? `/${itemId}` : ''}`;
+export const shareUrl = (boardId: string, itemId?: string) => location.origin + sharePath(boardId, itemId);
 
 /** 把一个文件传进 COS（不显示进度的小文件用，比如地图缩略图）；返回文件 ID */
 export async function putFile(blob: Blob): Promise<string> {

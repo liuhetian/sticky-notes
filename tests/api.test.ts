@@ -1,24 +1,41 @@
+import { serializeSigned } from 'hono/utils/cookie';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BATCH, DAY, MAX_FILE, TRASH_KEEP } from '../src/shared/constants';
+import { BATCH, BOARD_FULL, BOARD_MAX, DAY, MAX_FILE, TRASH_KEEP } from '../src/shared/constants';
 import { newFileId, newId } from '../src/shared/ids';
-import { ENV, note, setup } from './helpers';
+import { AS, ENV, note, setup } from './helpers';
 
 let t: ReturnType<typeof setup>;
 beforeEach(() => { t = setup(); });
 
 describe('鉴权', () => {
-  it('不带凭证 401，密码错 401', async () => {
+  it('不带凭证 401，密码错 401；X-Password 要带名字，名字要认识', async () => {
     expect((await t.call('GET', '/boards', undefined, {})).status).toBe(401);
-    expect((await t.call('GET', '/boards', undefined, { 'X-Password': 'nope' })).status).toBe(401);
+    expect((await t.call('GET', '/boards', undefined, AS('niuniu', 'nope'))).status).toBe(401);
+    expect((await t.call('GET', '/boards', undefined, { 'X-Password': 'pw-test' })).data.error).toContain('少了名字');
+    expect((await t.call('GET', '/boards', undefined, AS('dami'))).data.error).toContain('不认识「dami」');
+    // 密码里可以有 #：按最后一个切
+    expect((await t.call('GET', '/me', undefined, AS('banana', 'a#b'), { ...ENV, SITE_PASSWORD: 'a#b' })).data).toEqual({ ok: true, name: 'banana' });
   });
-  it('登录发 cookie，带 cookie 能访问；改了密码旧 cookie 失效', async () => {
-    expect((await t.call('POST', '/login', { password: 'bad' }, {})).status).toBe(401);
-    const ok = await t.call('POST', '/login', { password: 'pw-test' }, {});
+  it('登录要选名字，cookie 里记着是谁；改了密码旧 cookie 失效；没有名字的 cookie 不算登录', async () => {
+    expect((await t.call('POST', '/login', { password: 'bad', name: 'niuniu' }, {})).status).toBe(401);
+    expect((await t.call('POST', '/login', { password: 'pw-test', name: 'dami' }, {})).status).toBe(400);
+    const ok = await t.call('POST', '/login', { password: 'pw-test', name: 'banana' }, {});
+    expect(ok.data).toEqual({ ok: true, name: 'banana' });
     const cookie = ok.res.headers.get('set-cookie')!;
     expect(cookie).toMatch(/clip_auth=.*HttpOnly/);
     const headers = { Cookie: cookie.split(';')[0] };
-    expect((await t.call('GET', '/me', undefined, headers)).status).toBe(200);
+    expect((await t.call('GET', '/me', undefined, headers)).data).toEqual({ ok: true, name: 'banana' });
     expect((await t.call('GET', '/me', undefined, headers, { ...ENV, SITE_PASSWORD: 'changed' })).status).toBe(401);
+    expect((await t.call('GET', '/me', undefined, headers, { ...ENV, AI_PASSWORD: 'changed' })).status).toBe(200);
+    const exp = Math.floor(Date.now() / 1000) + 3600;
+    const bare = (await serializeSigned('clip_auth', String(exp), `${ENV.COOKIE_SECRET}\n${ENV.SITE_PASSWORD}`)).split(';')[0];
+    expect((await t.call('GET', '/me', undefined, { Cookie: bare })).status).toBe(401);
+  });
+  it('AI 的密码只能调 /api/ai/，也不能登录网页；名字列表不用登录', async () => {
+    expect((await t.call('GET', '/ai/boards', undefined, AS('ai', 'ai-test'))).status).toBe(200);
+    expect((await t.call('GET', '/boards', undefined, AS('ai', 'ai-test'))).status).toBe(403);
+    expect((await t.call('POST', '/login', { password: 'ai-test', name: 'ai' }, {})).status).toBe(401);
+    expect((await t.call('GET', '/names', undefined, {})).data).toEqual({ names: { banana: '香蕉', niuniu: '牛牛', ai: 'AI' }, login: ['banana', 'niuniu'] });
   });
 });
 
@@ -103,13 +120,70 @@ describe('元素', () => {
     expect((await t.call('PATCH', `/boards/${b}/items/${a.id}`, { links: [{ id: 'x', to: other }] })).status).toBe(400);
     expect((await t.call('PATCH', `/boards/${b}/items/${a.id}`, { links: [{ id: 'dddddddd', to: other, a: { line: 1, hint: '二' } }] })).status).toBe(400);
   });
-  it('分享链接：locate 找到所在白板；进了废纸篓就算没了', async () => {
+  it('最近编辑者：新建和改内容才记，拖动、换颜色、提醒不算', async () => {
     const b = await t.firstBoard();
     const it = (await t.call('POST', `/boards/${b}/items`, note())).data;
-    expect((await t.call('GET', `/items/${it.id}/locate`)).data.boardId).toBe(b);
-    await t.call('DELETE', `/boards/${b}/items/${it.id}`);
-    expect((await t.call('GET', `/items/${it.id}/locate`)).status).toBe(404);
-    expect((await t.call('GET', '/items/0000000000000000/locate')).status).toBe(404);
+    expect(it).toMatchObject({ by: 'niuniu', editedAt: it.createdAt });
+    const patch = async (body: unknown, who = 'banana') => (await t.call('PATCH', `/boards/${b}/items/${it.id}`, body, AS(who))).data;
+    expect(await patch({ x: 300, color: 'blue', remindAt: Date.now() + DAY, ttl: 600 })).toMatchObject({ by: 'niuniu', editedAt: it.editedAt });
+    expect(await patch({ text: '你好' })).toMatchObject({ by: 'niuniu' }); // 文字没变不算
+    const edited = await patch({ text: '香蕉改的' });
+    expect(edited.by).toBe('banana');
+    expect(edited.editedAt).toBeGreaterThanOrEqual(it.editedAt);
+    const loc = (await t.call('POST', `/boards/${b}/items`, { type: 'location', lat: 1, lng: 2, x: 1, y: 1 })).data;
+    expect((await t.call('PATCH', `/boards/${b}/items/${loc.id}`, { name: '家' }, AS('banana'))).data.by).toBe('banana');
+  });
+  it('不给位置就自动挑空位，不压着别的', async () => {
+    const b = await t.firstBoard();
+    const a = (await t.call('POST', `/boards/${b}/items`, { type: 'note', text: '一' })).data;
+    const c = (await t.call('POST', `/boards/${b}/items`, { type: 'note', text: '二' })).data;
+    expect(Math.abs(a.x - c.x) >= 240 || Math.abs(a.y - c.y) >= 100).toBe(true);
+  });
+});
+
+describe('改文字：原文换新文', () => {
+  const setupNote = async (text: string) => {
+    const b = await t.firstBoard();
+    const it = (await t.call('POST', `/boards/${b}/items`, note({ text }))).data;
+    return { b, it, edit: (body: unknown) => t.call('PATCH', `/boards/${b}/items/${it.id}`, body) };
+  };
+  it('原文恰好出现一次才换；old 为空在末尾加一行；不用带 baseRev', async () => {
+    const { edit } = await setupNote('- [ ] 买菜\n- [ ] 买花');
+    expect((await edit({ old: '- [ ] 买菜', new: '- [x] 买菜', baseRev: 0 })).data.text).toBe('- [x] 买菜\n- [ ] 买花');
+    expect((await edit({ old: '', new: '- [ ] 买米' })).data.text).toBe('- [x] 买菜\n- [ ] 买花\n- [ ] 买米');
+    expect((await edit({ new: '$& 不会被当成替换符号' })).data.text).toContain('\n$& 不会被当成替换符号');
+  });
+  it('找不到回 409 带最新的；出现多次回 400；写法不对回 400', async () => {
+    const { b, edit } = await setupNote('一 二 一');
+    const miss = await edit({ old: '三', new: '四' });
+    expect(miss.status).toBe(409);
+    expect(miss.data.item.text).toBe('一 二 一');
+    expect(miss.data.error).toContain('没找到');
+    const many = await edit({ old: '一', new: '壹' });
+    expect([many.status, many.data.error]).toEqual([400, expect.stringContaining('出现了 2 次')]);
+    expect((await edit({ old: '二' })).status).toBe(400);
+    expect((await edit({ old: '二', new: '贰', text: '整段' })).status).toBe(400);
+    const loc = (await t.call('POST', `/boards/${b}/items`, { type: 'location', lat: 1, lng: 2, x: 1, y: 1 })).data;
+    expect((await t.call('PATCH', `/boards/${b}/items/${loc.id}`, { old: '', new: 'x' })).status).toBe(400);
+  });
+});
+
+describe('白板上限', () => {
+  it('满 50 个以后新建、移进来、从废纸篓放回、快捷指令都被拒', async () => {
+    const [a, b] = await t.boardIds();
+    await t.fill(a, BOARD_MAX);
+    const full = await t.call('POST', `/boards/${a}/items`, note());
+    expect([full.status, full.data.error]).toEqual([409, BOARD_FULL]);
+    expect((await t.call('POST', '/share/text', { board: '共用', text: 'x' })).status).toBe(409);
+    expect((await t.call('POST', '/share/file', { board: '共用', name: 'a', ext: 'png' })).status).toBe(409);
+    const other = (await t.call('POST', `/boards/${b}/items`, note())).data;
+    expect((await t.call('POST', `/boards/${b}/items/${other.id}/move`, { to: a })).status).toBe(409);
+    // 从这块满的白板删一个进废纸篓，再塞满，就放不回去了
+    const [first] = await t.itemsOf(a);
+    await t.call('DELETE', `/boards/${a}/items/${first.id}`);
+    await t.call('POST', `/boards/${a}/items`, note());
+    expect((await t.call('POST', `/boards/trash/items/${first.id}/move`, {})).status).toBe(409);
+    expect(await t.itemsOf(a)).toHaveLength(BOARD_MAX);
   });
 });
 
@@ -165,6 +239,23 @@ describe('废纸篓', () => {
     expect((await t.call('DELETE', `/boards/${b}/items`)).status).toBe(400);
     expect((await t.call('DELETE', '/boards/trash/items')).data.removed).toBe(1);
     expect(await t.itemsOf('trash')).toHaveLength(0);
+  });
+  it('最多留 50 个：修剪时把最早进去的彻底删掉，一次删两个', async () => {
+    const [a, b] = await t.boardIds();
+    const items = [...(await t.fill(a, 30)), ...(await t.fill(b, 23))];
+    for (const it of items) await t.call('DELETE', `/boards/${it.boardId}/items/${it.id}`);
+    // 进废纸篓的时间（expiresAt）挨个错开，第一个最早
+    for (const [i, it] of items.entries()) {
+      const key = `items/trash/${it.id}.json`;
+      await t.blob.setJSON(key, { ...(await t.blob.get(key)), expiresAt: Date.now() + TRASH_KEEP - (100 - i) * 1000 });
+    }
+    expect((await t.call('POST', '/boards/trash/prune')).data).toEqual({ removed: 2, remaining: 1 });
+    expect((await t.call('POST', '/boards/trash/prune')).data).toEqual({ removed: 1, remaining: 0 });
+    expect((await t.call('POST', '/boards/trash/prune')).data).toEqual({ removed: 0, remaining: 0 });
+    const left = new Set(((await t.call('GET', '/boards/trash/etags')).data.items as { id: string }[]).map((e) => e.id));
+    expect(left.size).toBe(BOARD_MAX);
+    expect(items.slice(0, 3).some((it) => left.has(it.id))).toBe(false);
+    expect((await t.call('POST', `/boards/${a}/prune`)).status).toBe(400);
   });
 });
 
@@ -243,6 +334,19 @@ describe('提醒', () => {
     await t.call('POST', `/boards/trash/items/${it.id}/move`, {});
     expect((await t.call('GET', '/reminders')).data.reminders).toHaveLength(1);
   });
+  it('点「知道了」：元素在就记下；已经不在了就把那条提醒删掉', async () => {
+    const b = await t.firstBoard();
+    const it = (await t.call('POST', `/boards/${b}/items`, note())).data;
+    const at = Date.now() + 3600_000;
+    await t.call('PATCH', `/boards/${b}/items/${it.id}`, { remindAt: at });
+    expect((await t.call('POST', '/reminders/done', { itemId: it.id, boardId: b, remindAt: at })).status).toBe(200);
+    expect((await t.itemsOf(b))[0].remindDone).toBe(true);
+    const ghost = { itemId: '0'.repeat(16), boardId: b, remindAt: at };
+    await t.blob.setJSON(`reminders/${String(at).padStart(13, '0')}-${b}-${ghost.itemId}`, 1);
+    expect((await t.call('GET', '/reminders')).data.reminders).toEqual([ghost]);
+    await t.call('POST', '/reminders/done', ghost);
+    expect((await t.call('GET', '/reminders')).data.reminders).toEqual([]);
+  });
 });
 
 describe('快捷指令', () => {
@@ -254,7 +358,7 @@ describe('快捷指令', () => {
     const [a, b] = await t.itemsOf(niu);
     expect(Math.abs(a.x - b.x) >= 240 || Math.abs(a.y - b.y) >= 100).toBe(true);
     expect((await t.call('POST', '/share/text', { board: '不存在', text: 'x' })).status).toBe(404);
-    expect((await t.call('POST', '/share/text', { board: '废纸篓', text: 'x' })).status).toBe(404);
+    expect((await t.call('POST', '/share/text', { board: '废纸篓', text: 'x' })).status).toBe(400);
   });
   it('share/link 存成「[标题](网址)」；标题没有或就是网址时只放网址', async () => {
     const b = await t.firstBoard();
@@ -338,7 +442,7 @@ describe('高德分享链接', () => {
 
 describe('每天的清理', () => {
 
-  it('到期的进废纸篓、废纸篓满期的真删、孤儿文件、传不上来的、对不上的提醒', async () => {
+  it('到期的进废纸篓、废纸篓满期的真删、孤儿文件、传不上来的', async () => {
     const b = await t.firstBoard();
     const now = Date.now();
     const mk = async (body: unknown) => (await t.call('POST', `/boards/${b}/items`, body)).data;
@@ -355,13 +459,12 @@ describe('每天的清理', () => {
     await t.blob.setJSON(stuckKey, { ...stuck, createdAt: now - 2 * DAY });
     // 放到最后改：前面走接口读白板的步骤会顺手把到期的先处理掉
     await t.blob.setJSON(`items/${b}/${expired.id}.json`, { ...expired, expiresAt: now - 1 });
-    await t.blob.setJSON(`reminders/${String(now).padStart(13, '0')}-${b}-${'0'.repeat(16)}`, 1);
 
     // 一次只清一批；调到它说做完为止
     let r = await t.call('POST', '/cron/cleanup', undefined, {});
     expect(r.data.done).toBe(false);
     for (let n = 0; !r.data.done && n < 20; n++) r = await t.call('POST', '/cron/cleanup', undefined, {});
-    expect(r.data).toEqual({ expired: 2, stalePending: 1, orphanFiles: 1, staleReminders: 1, done: true });
+    expect(r.data).toEqual({ expired: 2, stalePending: 1, trashPruned: 0, orphanFiles: 1, done: true });
     expect((await t.itemsOf(b)).map((i) => i.type)).toEqual(['file']);
     expect(await t.itemsOf('trash')).toMatchObject([{ id: expired.id }]);
     expect([...t.files.data.keys()].sort()).toEqual([keepFile, orphanNew].sort());
@@ -382,9 +485,17 @@ describe('每天的清理', () => {
     expect(await t.blob.get('cleanup/state.json')).toBeNull();
     expect((await t.call('POST', '/cron/cleanup', undefined, {})).data.done).toBe(false);
   });
+  it('废纸篓超出 50 个的也修剪掉，修剪和收尾不在同一次调用里', async () => {
+    const [a, b] = await t.boardIds();
+    for (const it of [...(await t.fill(a, 27)), ...(await t.fill(b, 26))]) await t.call('DELETE', `/boards/${it.boardId}/items/${it.id}`);
+    let r = await t.call('POST', '/cron/cleanup', undefined, {});
+    for (let n = 0; !r.data.done && n < 20; n++) r = await t.call('POST', '/cron/cleanup', undefined, {});
+    expect(r.data).toMatchObject({ trashPruned: 3, done: true });
+    expect(await t.itemsOf('trash')).toHaveLength(BOARD_MAX);
+  });
 });
 
-describe('元素很多时分批', () => {
+describe('一次读完整块白板', () => {
   it('按 id 取元素必须带 ids，一次最多一批', async () => {
     const b = await t.firstBoard();
     expect((await t.call('GET', `/boards/${b}/items`)).status).toBe(400);
@@ -411,10 +522,60 @@ describe('元素很多时分批', () => {
     expect(await t.boardIds()).not.toContain(second);
     expect(await t.itemsOf('trash')).toHaveLength(12);
   });
-  it('手机分享挑空位时只参考一批元素，白板再满也能发进来', async () => {
+  it('手机分享挑空位时看整块白板，不压着任何一张', async () => {
     const b = await t.firstBoard();
-    for (let i = 0; i < 45; i++) await t.call('POST', `/boards/${b}/items`, note({ x: 100 + i * 10, y: 100 }));
-    expect((await t.call('POST', '/share/text', { board: '共用', text: '还能发' })).data.type).toBe('note');
-    expect(await t.itemsOf(b)).toHaveLength(46);
+    const before = await t.fill(b, 45);
+    const { itemId } = (await t.call('POST', '/share/text', { board: '共用', text: '还能发' })).data;
+    const fresh = (await t.itemsOf(b)).find((i) => i.id === itemId);
+    expect(before.every((o) => Math.abs(o.x - fresh.x) >= 240 || Math.abs(o.y - fresh.y) >= 100)).toBe(true);
+  });
+  it('读的时候顺手做的事一次最多两个：到期的这次不返回，下一次才挪完', async () => {
+    const b = await t.firstBoard();
+    const items = await t.fill(b, 5);
+    for (const it of items) await t.blob.setJSON(`items/${b}/${it.id}.json`, { ...it, expiresAt: Date.now() - 1 });
+    expect(await t.itemsOf(b)).toEqual([]);
+    expect((await t.call('GET', `/boards/${b}/etags`)).data.items).toHaveLength(3);
+    expect(await t.itemsOf('trash')).toHaveLength(2);
+  });
+});
+
+describe('给 AI 的接口', () => {
+  const ai = (method: string, path: string, body?: unknown) => t.call(method, `/ai${path}`, body, AS('ai', 'ai-test'));
+  it('白板写名字：一次读完，按最近编辑从新到旧；todo=1 只要没做完的；带上数量和上限', async () => {
+    const b = await t.firstBoard();
+    const x = (await t.call('POST', `/boards/${b}/items`, note({ text: '- [ ] 没做完' }))).data;
+    const y = (await t.call('POST', `/boards/${b}/items`, note({ text: '- [x] 做完了' }))).data;
+    const z = (await t.call('POST', `/boards/${b}/items`, note({ text: '普通' }))).data;
+    await t.blob.setJSON(`items/${b}/${x.id}.json`, { ...x, editedAt: x.editedAt + 3000 });
+    await t.blob.setJSON(`items/${b}/${z.id}.json`, { ...z, editedAt: z.editedAt + 2000 });
+    const r = (await ai('GET', '/boards/共用')).data;
+    expect(r).toMatchObject({ board: { id: b, name: '共用' }, count: 3, max: BOARD_MAX });
+    expect(r.items.map((i: any) => i.id)).toEqual([x.id, z.id, y.id]);
+    expect((await ai('GET', `/boards/${b}?todo=1`)).data.items.map((i: any) => i.id)).toEqual([x.id]);
+    expect((await ai('GET', '/boards/没有这块')).data.error).toContain('现有的：共用、牛牛、香蕉、废纸篓');
+    expect((await ai('GET', '/boards/废纸篓')).data.board.id).toBe('trash');
+  });
+  it('新建默认白色、自动挑位置；改文字；删除进废纸篓、放回；不能彻底删除', async () => {
+    const made = await ai('POST', '/boards/牛牛/items', { type: 'note', text: '- [ ] 一' });
+    expect(made.status).toBe(201);
+    expect(made.data).toMatchObject({ color: 'white', by: 'ai' });
+    const id = made.data.id;
+    expect((await ai('PATCH', `/boards/牛牛/items/${id}`, { old: '- [ ] 一', new: '- [x] 一' })).data.text).toBe('- [x] 一');
+    expect((await ai('GET', `/boards/牛牛/items/${id}`)).data.text).toBe('- [x] 一');
+    expect((await ai('DELETE', `/boards/牛牛/items/${id}`)).data.item.boardId).toBe('trash');
+    expect((await ai('DELETE', `/boards/trash/items/${id}`)).status).toBe(400);
+    expect((await ai('POST', `/boards/废纸篓/items/${id}/move`, {})).data.item.boardId).toBe(made.data.boardId);
+    expect((await ai('POST', `/boards/牛牛/items/${id}/move`, { to: '香蕉' })).data.to).toBe((await t.boardIds())[2]);
+  });
+  it('读单个时顺手把文件到了的「上传中」转正；不开放的接口回 404 指向说明', async () => {
+    const url = (await t.call('POST', '/share/file', { board: '共用', name: 'IMG_1', ext: 'png' })).data as string;
+    const b = await t.firstBoard();
+    const id = ((await t.call('GET', `/boards/${b}/etags`)).data.items as { id: string }[])[0].id;
+    t.files.upload(url, 'PNG');
+    expect((await ai('GET', `/boards/共用/items/${id}`)).data).toMatchObject({ pending: false, file: { size: 3 } });
+    expect((await ai('POST', '/uploads', { size: 3 })).data.url).toMatch(/^memory:\/\/upload\//);
+    const no = await ai('DELETE', '/boards/trash/items');
+    expect([no.status, no.data.error]).toEqual([404, expect.stringContaining('/api/ai/index.md')]);
+    expect((await ai('POST', '/boards', { name: 'x' })).status).toBe(404);
   });
 });

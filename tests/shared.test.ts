@@ -114,22 +114,20 @@ describe('便利贴里的引用', () => {
     expect(refLink('a[1]\nb', { id: A })).toBe(`[a\\[1\\] b](/${A})`);
     expect(refLink('图', { id: A, p: { px: 0.25, py: 1 / 3 } })).toBe(`[图](/${A}#0.25,0.333)`);
   });
-  it('认 /id、/id#x,y 和本站的完整链接；别的不认', () => {
+  it('只认 /id、/id#x,y；本站的完整链接、分享链接都不算', () => {
     expect(parseRef(`/${A}`)).toEqual({ id: A });
     expect(parseRef(`/${A}#0.5,0.25`)).toEqual({ id: A, p: { px: 0.5, py: 0.25 } });
     expect(parseRef(`/${A}#2,0.5`)).toEqual({ id: A });
-    expect(parseRef(`${O}/${A}`, O)).toEqual({ id: A });
     expect(parseRef(`${O}/${A}`)).toBeNull();
-    expect(parseRef(`https://example.com/${A}`, O)).toBeNull();
+    expect(parseRef(`/share/b1/${A}`)).toBeNull();
     expect(parseRef(`/x/${A}`)).toBeNull();
     expect(parseRef(`/${A}0`)).toBeNull();
     expect(parseRef(`/${A}#top`)).toBeNull();
   });
   it('从文字里找：按出现顺序，id 和点都一样的算一次；正文里随手写的 /id 不算', () => {
-    const text = `看 [图](/${B}#0.5,0.5) 和 [它](/${A})\n${O}/${B}#0.5,0.5 又一次\n${O}/${A}，还有 /${B} 和 [外链](https://example.com/${A})\n[再看](/${B})`;
-    expect(refsIn(text, O)).toEqual([{ id: B, p: { px: 0.5, py: 0.5 } }, { id: A }, { id: B }]);
+    const text = `看 [图](/${B}#0.5,0.5) 和 [它](/${A})\n[又一次](/${B}#0.5,0.5)\n${O}/${A}，还有 /${B} 和 [外链](https://example.com/${A})\n[再看](/${B})`;
     expect(refsIn(text)).toEqual([{ id: B, p: { px: 0.5, py: 0.5 } }, { id: A }, { id: B }]);
-    expect(refsIn(`[x](${O}/${A})`)).toEqual([]);
+    expect(refsIn(`[x](${O}/${A}) [分享](${O}/share/b1/${A})`)).toEqual([]);
   });
   it('加：给行号加在那一行末尾；否则加在最后，前面只有引用就接着写，不然空一行', () => {
     const md = `[图](/${A})`;
@@ -141,10 +139,9 @@ describe('便利贴里的引用', () => {
   });
   it('删：只删 id 和点都一样的，连同前面一个空格；删空的行去掉；没删到原样返回', () => {
     const text = `一 [图](/${A})\n二 [图](/${A}#0.5,0.5)\n\n[它](/${A})\n`;
-    expect(dropRef(text, { id: A }, O)).toBe(`一\n二 [图](/${A}#0.5,0.5)`);
-    expect(dropRef(text, { id: A, p: { px: 0.5, py: 0.5 } }, O)).toBe(`一 [图](/${A})\n二\n\n[它](/${A})`);
-    expect(dropRef(`看 ${O}/${A} 这张`, { id: A }, O)).toBe('看 这张');
-    expect(dropRef(text, { id: B }, O)).toBe(text);
+    expect(dropRef(text, { id: A })).toBe(`一\n二 [图](/${A}#0.5,0.5)`);
+    expect(dropRef(text, { id: A, p: { px: 0.5, py: 0.5 } })).toBe(`一 [图](/${A})\n二\n\n[它](/${A})`);
+    expect(dropRef(text, { id: B })).toBe(text);
   });
 });
 
@@ -184,17 +181,22 @@ describe('文件 ID', () => {
 });
 
 describe('合并改动（前后端同一套）', () => {
-  const note = { ...itemBase({ id: 'a'.repeat(16), boardId: 'b', x: 0, y: 0, now: 0, expiresAt: DAY }), type: 'note', text: 'x', color: 'yellow' } as Item;
+  const note = { ...itemBase({ id: 'a'.repeat(16), boardId: 'b', x: 0, y: 0, now: 0, expiresAt: DAY, by: 'niuniu' }), type: 'note', text: 'x', color: 'yellow' } as Item;
   it('只改这种元素有的字段', () => {
-    expect(mergePatch(note, { name: '地名', x: 5 }, 0)).toEqual({ ...note, x: 5 });
+    expect(mergePatch(note, { name: '地名', x: 5 }, 0, 'banana')).toEqual({ ...note, x: 5 });
+  });
+  it('内容变了才记最近编辑者；拖动、换颜色不算', () => {
+    expect(mergePatch(note, { x: 1, color: 'white' }, 9, 'banana')).toMatchObject({ by: 'niuniu', editedAt: 0 });
+    expect(mergePatch(note, { text: 'x' }, 9, 'banana')).toMatchObject({ by: 'niuniu', editedAt: 0 });
+    expect(mergePatch(note, { text: 'y' }, 9, 'banana')).toMatchObject({ by: 'banana', editedAt: 9 });
   });
   it('设了提醒就重新等着响；提醒比到期还晚时，到期推到提醒后一天', () => {
-    expect(mergePatch({ ...note, remindDone: true }, { remindAt: 3 * DAY }, 0)).toMatchObject({ remindAt: 3 * DAY, remindDone: false, expiresAt: 4 * DAY });
-    expect(mergePatch(note, { ttl: 600 }, 1000)).toMatchObject({ expiresAt: 1000 + 600_000 });
+    expect(mergePatch({ ...note, remindDone: true }, { remindAt: 3 * DAY }, 0, 'niuniu')).toMatchObject({ remindAt: 3 * DAY, remindDone: false, expiresAt: 4 * DAY });
+    expect(mergePatch(note, { ttl: 600 }, 1000, 'niuniu')).toMatchObject({ expiresAt: 1000 + 600_000 });
   });
   it('连线去掉重复的和连自己的', () => {
     const l = (id: string, to: string) => ({ id, to });
-    expect(mergePatch(note, { links: [l('00000001', 'c'.repeat(16)), l('00000001', 'c'.repeat(16)), l('00000002', note.id)] }, 0).links).toEqual([l('00000001', 'c'.repeat(16))]);
+    expect(mergePatch(note, { links: [l('00000001', 'c'.repeat(16)), l('00000001', 'c'.repeat(16)), l('00000002', note.id)] }, 0, 'niuniu').links).toEqual([l('00000001', 'c'.repeat(16))]);
   });
 });
 

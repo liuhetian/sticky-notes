@@ -13,6 +13,7 @@ import type { Board, Item, PatchItem } from '@/shared/schema';
 import { countTasks } from '@/shared/todo';
 import { expiringSoon, fmtDay, isRinging, remain, rotFor } from '../../lib/format';
 import type { Actions } from '../../state/actions';
+import { useNames } from '../../state/queries';
 import { editStore } from '../../state/stores';
 import { Icon, IconButton } from '../../ui/Icon';
 import { LocationBody } from '../location/LocationBody';
@@ -90,6 +91,7 @@ export const ItemCard = memo(function ItemCard({ item, boardId, boards, actions,
   const remindOn = !inTrash && item.remindAt !== null && !item.remindDone;
   const targets = moveTargets(boards, boardId);
   const fromName = inTrash ? boards.find((b) => b.id === item.from)?.name : undefined;
+  const editor = useNames().data?.names[item.by] ?? item.by;
   const button = (a: ItemAction) =>
     <IconButton key={a.key} name={a.icon} title={a.hint ?? a.label} className={a.danger ? 'danger' : ''} onClick={a.run} />;
 
@@ -149,7 +151,8 @@ export const ItemCard = memo(function ItemCard({ item, boardId, boards, actions,
       )}
 
       <div className="foot">
-        <span className="when">{fromName ? `来自「${fromName}」` : fmtDay(item.createdAt)}</span>
+        {/* 最近编辑的人和时间：新建和改内容才算 */}
+        <span className="when" title="最近编辑">{editor && <b className="by">{editor}</b>}{fromName ? `来自「${fromName}」` : fmtDay(item.editedAt)}</span>
         <span className="foot-r">
           {todo && todo.total > 0 && <span className={clsx('todo-count', todo.done === todo.total && 'all')}>✓ {todo.done}/{todo.total}</span>}
           {remindOn && (ringing ? (

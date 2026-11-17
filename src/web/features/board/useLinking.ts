@@ -44,7 +44,7 @@ export function useLinking(boardId: string, items: Item[], actions: Actions) {
     if (!holder) return;
     // 引用线（只有便利贴有）：把文字里那段 [标题](/id) 删掉
     if (w.ref && holder.type === 'note') {
-      actions.patch(boardId, holder, { text: dropRef(holder.text, w.ref, location.origin), baseRev: holder.rev });
+      actions.patch(boardId, holder, { text: dropRef(holder.text, w.ref), baseRev: holder.rev });
       return;
     }
     if (holder.links) actions.patch(boardId, holder, { links: holder.links.filter((l) => l.id !== w.key) });

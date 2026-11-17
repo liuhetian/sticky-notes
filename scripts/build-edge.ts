@@ -1,9 +1,20 @@
 // 边缘函数只认 JavaScript：把 src/server/edge.ts 连同依赖打成一个文件
-import { build } from 'esbuild';
+import { build, type Plugin } from 'esbuild';
 import { readFileSync, statSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+// `import x from './a.md?raw'` 把文件内容当字符串打进包（和 vite/vitest 的 ?raw 一样）：给 AI 读的文档原文就是这么进函数的
+const raw: Plugin = {
+  name: 'raw',
+  setup(b) {
+    b.onResolve({ filter: /\?raw$/ }, (a) => ({ path: resolve(a.resolveDir, a.path.slice(0, -4)), namespace: 'raw' }));
+    b.onLoad({ filter: /.*/, namespace: 'raw' }, (a) => ({ contents: readFileSync(a.path, 'utf8'), loader: 'text' }));
+  },
+};
 
 const outfile = 'build/edge-functions/api/[[default]].js';
 await build({
+  plugins: [raw],
   entryPoints: ['src/server/edge.ts'],
   outfile,
   bundle: true,

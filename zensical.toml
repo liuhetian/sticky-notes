@@ -1,0 +1,31 @@
+# 给人读的接口文档：zensical 把 docs/ 构建成静态站，挂在 /ai/ 下（npm run build:docs，见 scripts/build-docs.ts）。
+# 同一份 markdown 给 AI 读时由边缘函数实时渲染：GET /api/ai/<页>.md（src/server/routes/ai.ts）
+[project]
+site_name = "牛牛便利贴 · 给 AI 的接口"
+site_url = "https://clip.liuhetian.life/ai/"
+docs_dir = "docs"
+# 在 vite 构建之后跑：vite 会清空 build/dist
+site_dir = "build/dist/ai"
+nav = [
+  { "接口说明" = "index.md" },
+]
+# 由 scripts/build-docs.ts 从 src/docs/live.ts 打包进 build/dist/ai/javascripts/，docs/ 里没有这个文件
+extra_javascript = ["javascripts/live.js"]
+
+[project.theme]
+language = "zh"
+# 不从 Google Fonts 拉字体（大陆访问不了），用系统字体
+font = false
+features = [
+  "content.code.copy",
+  "content.action.copy",   # 「Copy as Markdown」按钮；live.js 把它指向实时版 /api/ai/<页>.md
+]
+
+# llms.txt 索引；顺带生成的每页 md 副本占位符没替换，构建完由 scripts/build-docs.ts 删掉。
+# base_url 让 llms.txt 里的链接指向边缘函数的实时版
+[project.plugins.llmstxt]
+markdown_description = "牛牛便利贴给 AI 的读写接口。请求头带 X-Password: 密码#名字 时，文档里的白板列表是实时的。"
+base_url = "https://clip.liuhetian.life/api/ai/"
+
+[project.plugins.llmstxt.sections]
+"接口" = ["*.md"]

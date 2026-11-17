@@ -26,6 +26,11 @@ describe('聊天记录排版', () => {
     expect(many.parts).toHaveLength(30);
     expect(many.others).toBe(1);
     expect(many.text).not.toContain('压缩包');
+    // 白板上只剩 5 个位置：拆 4 个，压缩包占一个；刚好放得下就全拆、不留压缩包
+    const five = readChatZip(zip({ '聊天记录.txt': TXT, ...Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`x/图_${i}.jpg`, new Uint8Array([i])])) }).slice().buffer, 5)!;
+    expect([five.parts.length, five.others]).toEqual([4, 4]);
+    const exact = readChatZip(zip({ '聊天记录.txt': TXT, 'x/a.jpg': new Uint8Array([1]), 'x/b.jpg': new Uint8Array([2]) }).slice().buffer, 2)!;
+    expect([exact.parts.length, exact.others]).toEqual([2, 0]);
     expect(r.text).toMatch(/^\*2026年11月12日\*/);
     expect(readChatZip(zip({ 'a.jpg': new Uint8Array([1]) }).slice().buffer)).toBeNull();
     expect(readChatZip(strToU8('不是压缩包').slice().buffer)).toBeNull();

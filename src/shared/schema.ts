@@ -56,6 +56,9 @@ const ItemBase = z.object({
   remindDone: z.boolean(),
   /** 每写一次加 1；改文字时用来发现别人刚改过。0 表示本机刚建、服务端还没确认 */
   rev: z.number().int().min(0),
+  /** 最近一次编辑的人（名字的英文键，见部署配置 NAMES）和时间：新建和改内容才算，拖动、换颜色、改保留时长、提醒都不算 */
+  by: z.string(),
+  editedAt: z.number(),
   /** 在废纸篓里时，记下原来在哪块白板 */
   from: BoardId.optional(),
   links: Links.optional(),
@@ -78,10 +81,11 @@ export type ItemType = Item['type'];
 export type FileLikeItem = Extract<Item, { type: 'image' | 'file' }>;
 
 // ── 请求体 ──
-/** id 由前端定：新建的元素不等服务端返回就先显示 */
-const Place = { id: ItemId.optional(), x: Coord, y: Coord, ttl: Ttl.default(DEFAULT_TTL) };
+/** id 由前端定：新建的元素不等服务端返回就先显示。不给位置就由服务端挑空位 */
+const Place = { id: ItemId.optional(), x: Coord.optional(), y: Coord.optional(), ttl: Ttl.default(DEFAULT_TTL) };
 export const CreateItem = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('note'), text: Text.default(''), color: Color.default('yellow'), ...Place }),
+  /** 不给颜色时按入口定：网页黄色、AI 白色 */
+  z.object({ type: z.literal('note'), text: Text.default(''), color: Color.optional(), ...Place }),
   z.object({ type: z.literal('image'), file: FileRef, ...Place }),
   z.object({ type: z.literal('file'), file: FileRef, ...Place }),
   z.object({ type: z.literal('location'), lat: Lat, lng: Lng, name: PlaceName.default(''), ...Place }),
@@ -103,14 +107,17 @@ export const PatchItem = z.strictObject({
   links: Links.optional(),
   /** 改文字时带上自己看到的 rev，和服务端对不上就回 409 */
   baseRev: z.number().int().optional(),
+  /** 改文字的另一种写法：把原文 old 换成 new（old 要在便利贴里恰好出现一次）；old 为空就在末尾加一行 */
+  old: Text.optional(),
+  new: Text.optional(),
 });
 export type PatchItem = z.infer<typeof PatchItem>;
 
 export const BoardName = z.object({ name: z.string().trim().min(1).max(40) });
-/** 从废纸篓放回时可以带 ttl（按默认保留时长重新计时）或 expiresAt（撤销删除：恢复原来的到期时间） */
-export const MoveItem = z.object({ to: BoardId.optional(), ttl: Ttl.optional(), expiresAt: z.number().nullable().optional() });
+/** to 是白板 id 或名字。从废纸篓放回时可以带 ttl（按默认保留时长重新计时）或 expiresAt（撤销删除：恢复原来的到期时间） */
+export const MoveItem = z.object({ to: z.string().min(1).max(40).optional(), ttl: Ttl.optional(), expiresAt: z.number().nullable().optional() });
 export type MoveItem = z.infer<typeof MoveItem>;
-export const Login = z.object({ password: z.string().min(1) });
+export const Login = z.object({ password: z.string().min(1), name: z.string().min(1).max(40) });
 /** 领上传地址时先报大小，太大的直接挡掉；实际大小在建元素时再核对一次 */
 export const UploadRequest = z.object({ size: z.number().int().min(1).max(MAX_FILE) });
 
@@ -128,4 +135,5 @@ export const ShareFile = z.object({
 });
 
 export interface IndexEntry { id: string; etag: string }
-export interface Reminder { itemId: string; boardId: string; remindAt: number }
+export const Reminder = z.object({ itemId: ItemId, boardId: BoardId, remindAt: z.number().int() });
+export type Reminder = z.infer<typeof Reminder>;

@@ -41,6 +41,7 @@
 /* ── 设置面板 ── */
 .settings-panel { width: 248px; }
 .ttl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 2px 6px 6px; }
+.color-row { display: flex; gap: 2px; padding: 2px 8px 8px; }
 .ttl-opt { padding: 6px 0; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .ttl-opt:hover { border-color: #d6cdb9; }
 .ttl-opt.on { background: var(--ink); border-color: var(--ink); color: #fff; }

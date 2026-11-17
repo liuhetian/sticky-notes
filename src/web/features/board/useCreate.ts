@@ -1,13 +1,15 @@
 // 新建：便利贴（先出一张草稿）、画布、文件、位置；粘贴和拖进来的东西也走这里。
 // 新东西一律放进看得见的地方（usePlacing）
+import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type ChangeEvent } from 'react';
 import { toast } from 'sonner';
-import { TRASH } from '@/shared/constants';
+import { BOARD_FULL, BOARD_MAX, TRASH } from '@/shared/constants';
 import { parseCoords, round6 } from '@/shared/geo';
 import { sizeOf, type Size } from '@/shared/layout';
-import type { NoteItem } from '@/shared/schema';
+import type { Item, NoteItem } from '@/shared/schema';
 import type { Actions } from '../../state/actions';
-import { sketchStore, ttlStore } from '../../state/stores';
+import { qk } from '../../state/queries';
+import { colorStore, sketchStore, ttlStore } from '../../state/stores';
 import type { UploadMeta } from '../upload/useUploader';
 import type { CreateHandlers } from './CreateMenu';
 import type { Pos } from './geometry';
@@ -18,32 +20,38 @@ const LOCATION = sizeOf({ type: 'location' });
 
 export function useCreate(boardId: string, actions: Actions, place: ReturnType<typeof usePlacing>, upload: (files: File[], meta: UploadMeta) => void) {
   const ttl = ttlStore.use();
+  const qc = useQueryClient();
   /** 双击或菜单新建的便利贴：先在本地写，存的时候才真正创建 */
   const [draft, setDraft] = useState<Pos | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const filePos = useRef<Pos | null>(null);
 
-  const createNote = (text: string, pos: Pos, color: NoteItem['color'] = 'yellow') =>
+  const createNote = (text: string, pos: Pos, color: NoteItem['color'] = colorStore.get()) =>
     actions.create(boardId, { type: 'note', text, color, x: pos.x, y: pos.y, ttl });
   const createLocation = (lat: number, lng: number, pos: Pos) =>
     actions.create(boardId, { type: 'location', lat: round6(lat), lng: round6(lng), x: pos.x, y: pos.y, ttl });
-  const uploadAt = (files: File[], pos: Pos) => { if (files.length) upload(files, { boardId, ...pos, ttl }); };
+  const uploadAt = (files: File[], pos: Pos) => { if (files.length && !blocked(files.length)) upload(files, { boardId, ...pos, ttl }); };
 
-  /** 废纸篓里不能新建。菜单和加号在废纸篓里本来就没有，要拦的是双击、粘贴和拖放 */
-  const blocked = () => {
-    if (boardId !== TRASH) return false;
-    toast('废纸篓里不能直接贴，先切到别的白板');
-    return true;
+  /**
+   * 废纸篓里不能新建（菜单和加号在废纸篓里本来就没有，要拦的是双击、粘贴和拖放）。
+   * 白板放不下 n 个了也先在本机拦一下，免得文件白传一趟；准不准以服务端为准
+   */
+  const blocked = (n = 1) => {
+    if (boardId === TRASH) { toast('废纸篓里不能直接贴，先切到别的白板'); return true; }
+    if ((qc.getQueryData<Item[]>(qk.items(boardId))?.length ?? 0) + n > BOARD_MAX) { toast.error(BOARD_FULL); return true; }
+    return false;
   };
 
   const startDraft = (pos?: Pos) => { if (!blocked()) setDraft(pos ? place.fit(pos) : place.center()); };
   const pickFiles = (pos?: Pos) => {
+    if (blocked()) return;
     filePos.current = pos ? place.fit(pos, IMAGE) : null;
     fileInput.current?.click();
   };
-  const startSketch = (pos?: Pos) => sketchStore.set({ at: Date.now(), pos: pos ? place.fit(pos, IMAGE) : place.center(IMAGE) });
+  const startSketch = (pos?: Pos) => !blocked() && sketchStore.set({ at: Date.now(), pos: pos ? place.fit(pos, IMAGE) : place.center(IMAGE) });
   /** 取这台设备的当前位置，建一张位置卡片 */
   const startLocation = (pos?: Pos) => {
+    if (blocked()) return;
     if (!navigator.geolocation) { toast.error('这个浏览器取不到位置，可以直接粘贴「纬度,经度」'); return; }
     const at = pos ? place.fit(pos, LOCATION) : place.center(LOCATION);
     const tid = toast.loading('正在取当前位置…');

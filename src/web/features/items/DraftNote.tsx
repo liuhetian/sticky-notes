@@ -4,6 +4,7 @@ import { useState, type CSSProperties } from 'react';
 import { COLORS, expiryFrom } from '@/shared/constants';
 import type { NoteItem } from '@/shared/schema';
 import { serverNow } from '../../api/client';
+import { colorStore } from '../../state/stores';
 import { fmtDay, remain, rotFor } from '../../lib/format';
 import { Icon, IconButton } from '../../ui/Icon';
 import { NoteEditor } from './NoteBody';
@@ -15,7 +16,7 @@ export function DraftNote({ x, y, ttl, onSave, onCancel }: {
   onSave: (text: string, color: NoteItem['color']) => void;
   onCancel: () => void;
 }) {
-  const [color, setColor] = useState<NoteItem['color']>('yellow');
+  const [color, setColor] = useState<NoteItem['color']>(colorStore.get);
   const [createdAt] = useState(serverNow);
   // 手机上排成一列时排在最前面
   const style = { left: x, top: y, '--rot': `${rotFor('draft')}deg`, order: -2147483000 } as CSSProperties;

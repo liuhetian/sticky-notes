@@ -45,7 +45,7 @@
 .minimap { position: absolute; z-index: 30; right: 16px; bottom: 16px; overflow: hidden; border-radius: 8px; background: rgba(251, 250, 246, .94) radial-gradient(#ddd5c4 .6px, transparent .8px) 0 0 / 6px 6px; box-shadow: 0 4px 16px rgba(0, 0, 0, .12), 0 0 0 1px rgba(0, 0, 0, .06); cursor: pointer; touch-action: none; }
 .mm-item { position: absolute; border-radius: 1px; background: #d8cfbd; }
 .mm-item.yellow { background: var(--yellow-d); } .mm-item.pink { background: var(--pink-d); } .mm-item.blue { background: var(--blue-d); }
-.mm-item.green { background: var(--green-d); } .mm-item.purple { background: var(--purple-d); } .mm-item.orange { background: var(--orange-d); }
+.mm-item.green { background: var(--green-d); } .mm-item.purple { background: var(--purple-d); } .mm-item.orange { background: var(--orange-d); } .mm-item.white { background: var(--white-d); }
 .mm-item.img { background: #fff; box-shadow: 0 0 0 1px #c9bfac; }
 .mm-item.file { background: #fff; box-shadow: 0 0 0 1px #b9b0a0; }
 .mm-item.up { background: #f0c98f; }
