@@ -1,7 +1,7 @@
 // 白板上的元素：同步、新建、修改、删除（进废纸篓）、换白板。挂在 /boards 下面；规则在 services/items.ts
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
-import { z } from 'zod';
+import * as z from 'zod';
 import { BATCH, TRASH } from '../../shared/constants';
 import { CreateItem, MoveItem, PatchItem } from '../../shared/schema';
 import type { Env } from '../env';

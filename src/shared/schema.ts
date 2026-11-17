@@ -1,5 +1,6 @@
 // 前后端共用的数据模型：服务端拿它校验请求，前端拿它推导类型
-import { z } from 'zod';
+// zod 只能写成 import * as z：import { z } 会让 esbuild 把整个命名空间（含几十种语言的报错文案）打进边缘函数，scripts/build-edge.ts 会拦
+import * as z from 'zod';
 import { COLORS, DEFAULT_TTL, FILE_ID_RE, ITEM_ID_RE, MAX_FILE, MAX_TEXT, TTL_CHOICES } from './constants';
 
 /** 秒数；null 表示永久 */

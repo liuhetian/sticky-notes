@@ -13,7 +13,8 @@ const raw: Plugin = {
 };
 
 const outfile = 'build/edge-functions/api/[[default]].js';
-await build({
+const { metafile } = await build({
+  metafile: true,
   plugins: [raw],
   entryPoints: ['src/server/edge.ts'],
   outfile,
@@ -33,6 +34,12 @@ if (!m) throw new Error('打包结果里找不到 onRequest 导出');
 writeFileSync(outfile, code.slice(0, m.index) + `export async function onRequest(context){return ${m[1]}(context)}\n`);
 const kb = statSync(outfile).size / 1024;
 if (kb > 5 * 1024) throw new Error(`边缘函数包 ${kb.toFixed(0)} KB，超过 5 MB 上限`);
+// 包越大冷启动越慢，冷启动超过平台的 CPU 上限就回 545（docs/dev.md「平台的坑」）。
+// zod 写成 import { z } from 'zod' 会整个打进来（400 多 KB），写成 import * as z 只有 100 KB 左右
+const zodKb = Object.entries(metafile.outputs[outfile].inputs)
+  .filter(([path]) => path.includes('node_modules/zod/'))
+  .reduce((sum, [, v]) => sum + v.bytesInOutput, 0) / 1024;
+if (zodKb > 150) throw new Error(`边缘函数包里 zod 占了 ${zodKb.toFixed(0)} KB：zod 要写成 import * as z from 'zod'`);
 // /wiki/ 下有静态文件的路径（页面）平台直接给静态文件，落到函数的只有 .md
 const wikiEntry = 'build/edge-functions/wiki/[[default]].js';
 mkdirSync('build/edge-functions/wiki', { recursive: true });
