@@ -1,4 +1,5 @@
 import 'lxgw-wenkai-screen-webfont/lxgwwenkaigbscreen.css';
+import 'overlayscrollbars/overlayscrollbars.css';
 import './styles/index.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';

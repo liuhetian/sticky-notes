@@ -29,7 +29,8 @@ export function useCardsChanged(canvasRef: RefObject<HTMLElement | null>, onChan
     const watchSizes = () => canvas.querySelectorAll(':scope > .item').forEach((el) => ro.observe(el));
     const mo = new MutationObserver((records) => {
       if (records.some((r) => r.type === 'childList' && r.target === canvas)) watchSizes();
-      if (records.some((r) => !(r.target instanceof Element && r.target.closest('.links')))) measure();
+      // 连线自己画的、滚动条显隐（ui/Scroll）都不影响卡片位置，不用重量
+      if (records.some((r) => !(r.target instanceof Element && r.target.closest('.links, .os-scrollbar')))) measure();
     });
     mo.observe(canvas, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class'] });
     canvas.addEventListener('scroll', measure, true);

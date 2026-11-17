@@ -21,9 +21,10 @@
 .dialog-x:hover { background: #f1ede3; color: var(--ink); }
 .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .conflict-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.note-preview { max-height: 300px; overflow: auto; padding: 14px; border-radius: 4px 4px 14px 4px; background: var(--yellow); box-shadow: var(--shadow); }
+.note-preview { max-height: 300px; padding: 14px; border-radius: 4px 4px 14px 4px; background: var(--yellow); box-shadow: var(--shadow); }
 .note-preview.mine { background: #fff; }
 .note-preview pre { margin: 0; white-space: pre-wrap; font: inherit; font-size: 16px; }
+.note-preview .md { max-height: none; }
 .guide p { line-height: 1.7; }
 .steps { padding-left: 1.4em; line-height: 1.75; }
 .steps li { margin-bottom: 8px; }
@@ -46,7 +47,13 @@
 .ttl-opt:hover { border-color: #d6cdb9; }
 .ttl-opt.on { background: var(--ink); border-color: var(--ink); color: #fff; }
 .switch-row { justify-content: space-between; }
-.switch-row input { accent-color: var(--ink); width: 16px; height: 16px; }
+/* 开关：自己画的，不用原生复选框 */
+.switch { position: relative; flex: none; width: 34px; height: 20px; padding: 0; border: 0; border-radius: 99px; background: #ddd6c8; transition: background .15s; }
+.switch[data-state='checked'] { background: var(--ink); }
+.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.switch:disabled { cursor: not-allowed; }
+.switch-thumb { display: block; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .2); transform: translateX(2px); transition: transform .15s; }
+.switch-thumb[data-state='checked'] { transform: translateX(16px); }
 .switch-row.off { opacity: .45; cursor: not-allowed; }
 
 /* 右键菜单的子菜单 */

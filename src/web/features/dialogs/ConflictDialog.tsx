@@ -1,6 +1,7 @@
 // 改文字时别人刚改过：两份并排，自己选
 import type { Actions } from '../../state/actions';
 import { conflictStore } from '../../state/stores';
+import { Scroll } from '../../ui/Scroll';
 import { Markdown } from '../items/NoteBody';
 import { Shell } from './Shell';
 
@@ -12,8 +13,8 @@ export function ConflictDialog({ actions }: { actions: Actions }) {
       {c && (
         <>
           <div className="conflict-cols">
-            <div><div className="mlabel">对方的（现在存着的）</div><div className={`note-preview ${c.theirs.color}`}><div className="md"><Markdown text={c.theirs.text} boardId={c.boardId} /></div></div></div>
-            <div><div className="mlabel">你刚写的</div><div className="note-preview mine"><pre>{c.mine}</pre></div></div>
+            <div><div className="mlabel">对方的（现在存着的）</div><Scroll className={`note-preview ${c.theirs.color}`}><div className="md"><Markdown text={c.theirs.text} boardId={c.boardId} /></div></Scroll></div>
+            <div><div className="mlabel">你刚写的</div><Scroll className="note-preview mine"><pre>{c.mine}</pre></Scroll></div>
           </div>
           <div className="dialog-actions">
             <button type="button" className="btn" onClick={close}>用对方的</button>

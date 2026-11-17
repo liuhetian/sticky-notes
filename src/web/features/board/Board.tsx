@@ -270,6 +270,13 @@ export function BoardView({ board, boards, actions, upload }: {
           <div className="empty-sub">{error instanceof Error ? error.message : String(error)}；数据还在服务器上，过一会儿会自动重试</div>
         </div>
       )}
+      {/* 第一次打开、数据还没到：三张小便利贴轮流跳，免得和「真的是空的」分不清 */}
+      {isPending && (
+        <div className="empty loading" role="status">
+          <div className="hop"><i /><i /><i /></div>
+          <div className="empty-sub">正在打开白板…</div>
+        </div>
+      )}
       {!isError && !isPending && !items.length && !uploads.length && !create.draft && (
         <div className="empty">
           <div className="empty-big">{inTrash ? '废纸篓是空的' : '粘贴到这里'}</div>

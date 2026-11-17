@@ -1,6 +1,7 @@
 // 侧边栏左下角的设置：新内容默认保留多久、新便利贴的颜色、显不显示小地图、自动同步；都只记在这台设备上。
 // 文字说明不放这里，收在旁边的 i 里
 import * as Popover from '@radix-ui/react-popover';
+import * as Switch from '@radix-ui/react-switch';
 import clsx from 'clsx';
 import { COLORS } from '@/shared/constants';
 import { TTL_LABELS } from '../../lib/format';
@@ -37,11 +38,11 @@ export function SettingsButton() {
           {/* 手机上没有小地图，开关置灰；不改存下来的值，回到电脑上还是原来的选择 */}
           <label className={clsx('mi switch-row', mobile && 'off')} title={mobile ? '手机上没有小地图' : undefined}>
             <span>显示小地图</span>
-            <input type="checkbox" disabled={mobile} checked={minimap && !mobile} onChange={(e) => minimapStore.set(e.target.checked)} />
+            <Switch.Root className="switch" disabled={mobile} checked={minimap && !mobile} onCheckedChange={minimapStore.set}><Switch.Thumb className="switch-thumb" /></Switch.Root>
           </label>
           <label className="mi switch-row">
             <span>自动同步</span>
-            <input type="checkbox" checked={sync} onChange={(e) => syncStore.set(e.target.checked)} />
+            <Switch.Root className="switch" checked={sync} onCheckedChange={syncStore.set}><Switch.Thumb className="switch-thumb" /></Switch.Root>
           </label>
         </Popover.Content>
       </Popover.Portal>

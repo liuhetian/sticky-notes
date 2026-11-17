@@ -64,7 +64,7 @@ export const ItemCard = memo(function ItemCard({ item, boardId, boards, actions,
   const patch = (p: PatchItem) => actions.patch(boardId, item, p);
 
   const bind = useDrag(({ first, last, canceled, movement: [mx, my], event, cancel, tap }) => {
-    if (first && (event.target as HTMLElement).closest('button, a, input, textarea, label, video, audio, .bar')) return cancel();
+    if (first && (event.target as HTMLElement).closest('button, a, input, textarea, label, video, audio, .bar, .os-scrollbar')) return cancel();
     // 上面取消掉的那次，use-gesture 还会补发一个收尾事件，带着已经挪过的那几像素：不算拖动，不然卡片会被挪一下
     if (canceled || tap) return;
     if (last) draggedAt.current = Date.now();

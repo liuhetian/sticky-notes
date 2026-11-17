@@ -11,6 +11,7 @@ import { allTasksDone, continueTask, normalizeBareTasks, toggleTaskLine } from '
 import { sharePath } from '../../api/client';
 import { useMobile } from '../../lib/hooks';
 import { jumpTo } from '../../state/stores';
+import { Scroll } from '../../ui/Scroll';
 
 const LineCtx = createContext<number | null>(null);
 const ToggleCtx = createContext<((line: number, checked: boolean) => void) | null>(null);
@@ -91,9 +92,9 @@ export function NoteContent({ item, editing, setEditing, readOnly, patch, onThro
   }
   return (
     <>
-      <div className="md" onDoubleClick={() => !readOnly && setEditing(true)}>
+      <Scroll className="md" onDoubleClick={() => !readOnly && setEditing(true)}>
         <Markdown text={item.text} boardId={item.boardId} onToggle={readOnly ? undefined : (line, checked) => patch({ text: toggleTaskLine(item.text, line, checked), baseRev: item.rev })} />
-      </div>
+      </Scroll>
       {!readOnly && allTasksDone(item.text) && (
         <button type="button" className="throw" onClick={(e) => { e.stopPropagation(); onThrow(); }}>🎉 全部完成 · 丢入废纸篓</button>
       )}

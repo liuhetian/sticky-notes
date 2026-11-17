@@ -24,6 +24,8 @@ button { cursor: pointer; }
 .splash { height: 100%; display: grid; place-items: center; animation: breathe 1.4s ease-in-out infinite; }
 .splash .logo { width: 64px; height: 64px; }
 @keyframes breathe { 50% { opacity: .4; transform: scale(.92); } }
+/* 自己画的滚动条（ui/Scroll）：细、暖色，鼠标放上去变粗 */
+.os-theme-paper { box-sizing: border-box; --os-size: 10px; --os-padding-perpendicular: 2px; --os-padding-axis: 4px; --os-track-border-radius: 99px; --os-handle-border-radius: 99px; --os-handle-min-size: 28px; --os-handle-interactive-area-offset: 4px; --os-handle-perpendicular-size: 55%; --os-handle-perpendicular-size-hover: 100%; --os-handle-perpendicular-size-active: 100%; --os-handle-bg: rgba(60, 45, 20, .25); --os-handle-bg-hover: rgba(60, 45, 20, .4); --os-handle-bg-active: rgba(60, 45, 20, .5); }
 
 /* ── 登录 ── */
 .login-page { height: 100%; display: grid; place-items: center; padding: 24px; background: radial-gradient(#d8cfbd 1.2px, transparent 1.4px) 0 0 / 24px 24px, var(--paper); }
@@ -32,8 +34,17 @@ button { cursor: pointer; }
 .login-logo { display: block; width: 64px; height: 64px; margin: 0 auto; }
 .login-card h1 { margin: 8px 0 2px; font-size: 30px; letter-spacing: 2px; }
 .login-sub { margin: 0 0 22px; color: #8a7b4f; }
-.login-card input, .login-card select { width: 100%; padding: 11px 14px; font: inherit; font-size: 16px; outline: none; border: 1.5px solid rgba(0, 0, 0, .12); border-radius: 10px; background: rgba(255, 255, 255, .7); color: inherit; }
-.login-card select { margin-bottom: 10px; }
-.login-card input:focus, .login-card select:focus { border-color: var(--accent); background: #fff; }
-.login-card button { width: 100%; margin-top: 12px; padding: 11px; font-size: 16px; letter-spacing: 4px; border: 0; border-radius: 10px; background: var(--ink); color: #fff; }
+.login-card input, .login-pick { width: 100%; padding: 11px 14px; font: inherit; font-size: 16px; outline: none; border: 1.5px solid rgba(0, 0, 0, .12); border-radius: 10px; background: rgba(255, 255, 255, .7); color: inherit; }
+.login-card input:focus, .login-pick:focus-visible, .login-pick[data-state='open'] { border-color: var(--accent); background: #fff; }
+/* 「我是谁」：自己画的下拉框，弹出的列表和右键菜单一个样子 */
+.login-pick { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; text-align: left; cursor: pointer; }
+.login-pick[data-placeholder] { color: rgba(0, 0, 0, .4); }
+.login-pick-arrow { color: #8a7b4f; transform: rotate(90deg); transition: transform .15s; }
+.login-pick[data-state='open'] .login-pick-arrow { transform: rotate(-90deg); }
+/* 跟登录卡片斜一样的角度，看着是从框里掉出来的 */
+.login-pick-menu { width: var(--radix-select-trigger-width); font-size: 16px; rotate: -1.4deg; transform-origin: var(--radix-select-content-transform-origin); }
+.login-pick-menu .mi { padding: 9px 12px; }
+.login-pick-menu .mi[data-state='checked'] { font-weight: 600; }
+.login-pick-menu .mi-hint { color: var(--accent); }
+.login-card button[type='submit'] { width: 100%; margin-top: 12px; padding: 11px; font-size: 16px; letter-spacing: 4px; border: 0; border-radius: 10px; background: var(--ink); color: #fff; }
 .login-err { min-height: 1.4em; margin: 10px 0 0; color: #c0392b; }
