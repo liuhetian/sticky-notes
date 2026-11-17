@@ -71,4 +71,6 @@ kbd { margin: 0 2px; padding: 1px 6px; font: 12px/1.4 inherit; border: 1px solid
 .tb-ib.refresh { flex-shrink: 0; width: 28px; height: 28px; margin-right: -6px; color: var(--muted); }
 .tb-ib.refresh:disabled { cursor: default; }
 .tb-ib.refresh.busy svg { animation: spin .7s linear infinite; }
+.tb-ib.refresh.done { color: #2e9e5b; }
+.tb-ib.refresh.done .ic { animation: pop .3s cubic-bezier(.2, 1.4, .4, 1); }
 .corner-float { position: absolute; z-index: 40; top: 12px; right: 16px; }
