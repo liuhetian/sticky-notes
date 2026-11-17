@@ -30,10 +30,10 @@ export function Sidebar({ boards, current, onSwitch, actions, renaming, setRenam
         <IconButton name={collapsed ? 'panelOpen' : 'panelClose'} title={collapsed ? '展开侧栏' : '收起侧栏'} className="side-toggle" onClick={toggle} />
       </div>
       <nav className="tabs">
-        {regular.map((b, i) => (
+        {regular.map((b) => (
           <div key={b.id} className={clsx('tab', b.id === current && 'on')} title={collapsed ? b.name : '双击改名'}
             onClick={() => onSwitch(b.id)} onDoubleClick={() => !collapsed && setRenaming(b.id)}>
-            <BoardIcon name={b.name} index={i} />
+            <BoardIcon id={b.id} name={b.name} />
             {renaming === b.id && !collapsed ? (
               <input className="tab-input" defaultValue={b.name} maxLength={40} autoFocus
                 onFocus={(e) => e.currentTarget.select()}

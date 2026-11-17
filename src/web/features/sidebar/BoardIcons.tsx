@@ -1,4 +1,5 @@
-// 手画的白板图标，按名字认：共用（两个人）、牛牛（奶牛）、香蕉、大米（小熊脑袋）；其余白板用彩色色块
+// 手画的白板图标，按名字认：共用（两个人）、牛牛（奶牛）、香蕉、大米（小熊脑袋）。
+// 其余白板画一张写着名字首字的小便利贴，和手画的一样大，名字才对得齐
 const Shared = () => (
   <svg viewBox="0 0 32 32" aria-hidden>
     <circle cx="11.5" cy="11" r="4.6" fill="#7db8f0" />
@@ -58,8 +59,24 @@ const Bear = () => (
 
 const ICONS: Record<string, () => React.JSX.Element> = { 共用: Shared, 牛牛: Cow, 香蕉: Banana, 大米: Bear };
 
-export function BoardIcon({ name, index }: { name: string; index: number }) {
+// 便利贴的浅色和深色（styles/base.css 里那几种，白色除外）；按 id 挑，删了别的白板颜色也不变
+const NOTE_COLORS = [
+  ['#fff2a8', '#f6d955'], ['#ffdbe4', '#f5a6bc'], ['#d6ebff', '#8cc2f3'],
+  ['#dbf4d3', '#9bd78b'], ['#e9e0fe', '#bea8f3'], ['#ffe2bf', '#f5b26a'],
+] as const;
+const colorOf = (id: string) => NOTE_COLORS[([...id].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261) >>> 0) % NOTE_COLORS.length];
+
+const Note = ({ ch, color: [bg, edge] }: { ch: string; color: readonly [string, string] }) => (
+  <svg viewBox="0 0 32 32" aria-hidden>
+    <g transform="rotate(-5 16 16)">
+      <path d="M3.5 3.5h25v18l-7 7h-18z" fill={bg} stroke={edge} strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M28.5 21.5h-7v7z" fill={edge} stroke={edge} strokeWidth="1.4" strokeLinejoin="round" />
+      <text x="15.2" y="15.4" textAnchor="middle" dominantBaseline="central" fontSize="16" fontWeight="700" fill="#4a4031">{ch}</text>
+    </g>
+  </svg>
+);
+
+export function BoardIcon({ id, name }: { id: string; name: string }) {
   const Svg = ICONS[name];
-  if (Svg) return <span className="board-icon">{Svg()}</span>;
-  return <span className={`dot c${index % 6}`} data-ch={[...name][0]} />;
+  return <span className="board-icon">{Svg ? Svg() : <Note ch={[...name][0] ?? ''} color={colorOf(id)} />}</span>;
 }

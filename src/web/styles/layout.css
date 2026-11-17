@@ -7,9 +7,6 @@
 .tab { position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 8px 9px 12px; border-radius: 10px; color: #5b564c; cursor: pointer; }
 .tab:hover { background: #f1ede3; }
 .tab.on { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 0 0 1px var(--line); }
-.dot { flex: none; width: 11px; height: 11px; border-radius: 3px; transform: rotate(10deg); }
-.dot.c0 { background: #f3d248; } .dot.c1 { background: #f39bb2; } .dot.c2 { background: #7db8f0; }
-.dot.c3 { background: #8fd17e; } .dot.c4 { background: #b39cf0; } .dot.c5 { background: #f3ab5a; }
 .tab-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tab-input { flex: 1; min-width: 0; padding: 1px 6px; border: 1px solid var(--accent); border-radius: 6px; outline: none; background: #fff; }
 .ib.tab-x { width: 24px; height: 24px; opacity: 0; }
@@ -48,9 +45,6 @@ kbd { margin: 0 2px; padding: 1px 6px; font: 12px/1.4 inherit; border: 1px solid
   .side.collapsed .tabs { align-items: center; gap: 6px; width: 100%; }
   .side.collapsed .tab { justify-content: center; padding: 4px; width: 100%; }
   .side.collapsed .tab.on { background: none; box-shadow: none; }
-  .side.collapsed .dot { width: 34px; height: 34px; border-radius: 10px; transform: none; display: grid; place-items: center; box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
-  .side.collapsed .dot::after { content: attr(data-ch); color: #fff; font-size: 16px; font-weight: 700; text-shadow: 0 1px 1px rgba(0, 0, 0, .15); }
-  .side.collapsed .tab.on .dot { box-shadow: 0 0 0 2px var(--side), 0 0 0 4px var(--ink); }
   .side.collapsed .new-board { width: 40px; height: 40px; padding: 0; justify-content: center; }
   .side.collapsed .trash-tab { width: 44px; justify-content: center; border-top: 0; }
   .side.collapsed .side-foot { flex-direction: column; }
