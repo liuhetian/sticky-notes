@@ -6,6 +6,7 @@ import type { Item } from '@/shared/schema';
 import { api, authLost, serverNow, unwrap } from './api/client';
 import { Login } from './features/auth/Login';
 import { BoardView } from './features/board/Board';
+import { RefreshButton } from './features/board/RefreshButton';
 import { ConflictDialog } from './features/dialogs/ConflictDialog';
 import { Guide } from './features/dialogs/Guide';
 import { Lightbox } from './features/dialogs/Lightbox';
@@ -77,9 +78,10 @@ function Main() {
         onLogout={async () => { await unwrap(api.logout.$post()).catch(() => {}); location.reload(); }} />
       <section className="main">
         <BoardView key={current.id} board={current} boards={boards} actions={actions} upload={upload} />
-        {/* 没有顶栏：白板名字浮在画布左上角 */}
+        {/* 没有顶栏：白板名字浮在画布左上角；关着自动同步时旁边有刷新按钮 */}
         <div className="title-float">
           <h1 className="board-title" title={inTrash ? undefined : '双击改名'} onDoubleClick={() => !inTrash && setRenaming(current.id)}>{current.name}</h1>
+          <RefreshButton boardId={current.id} />
         </div>
       </section>
       <Lightbox />
