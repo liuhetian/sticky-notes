@@ -575,7 +575,7 @@ describe('给 AI 的接口', () => {
     expect((await ai('GET', `/boards/共用/items/${id}`)).data).toMatchObject({ pending: false, file: { size: 3 } });
     expect((await ai('POST', '/uploads', { size: 3 })).data.url).toMatch(/^memory:\/\/upload\//);
     const no = await ai('DELETE', '/boards/trash/items');
-    expect([no.status, no.data.error]).toEqual([404, expect.stringContaining('/api/ai/index.md')]);
+    expect([no.status, no.data.error]).toEqual([404, expect.stringContaining('/wiki/index.md')]);
     expect((await ai('POST', '/boards', { name: 'x' })).status).toBe(404);
   });
 });

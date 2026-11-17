@@ -6,3 +6,6 @@ backups/
 *.log
 .claude/
 .cache/
+site/
+# 构建时从 test-wiki/shared/ 复制
+docs/javascripts/

@@ -1,8 +1,10 @@
-// EdgeOne Makers 边缘函数入口：scripts/build-edge.ts 把它打成 edge-functions/api/[[default]].js
+// EdgeOne Makers 边缘函数入口：scripts/build-edge.ts 把它打成一个包，放两个入口：
+// edge-functions/api/[[default]].js 接 /api/*，edge-functions/wiki/[[default]].js 接 /wiki/ 下没有静态文件的路径（.md）
 import { getStore, type StoreOptions } from '@edgeone/pages-blob';
 import { createApp } from './app';
 import { Db } from './repo/db';
 import { CosFiles } from './storage/files';
+import { createWiki } from './wiki';
 
 type MakersContext = { request: Request; env: Record<string, string>; waitUntil?: (p: Promise<unknown>) => void };
 
@@ -18,9 +20,11 @@ const app = createApp((c) => {
     defer: (p) => c.executionCtx.waitUntil(p.catch((e) => console.error('[defer]', e))),
   };
 });
+const wiki = createWiki(app);
 
 export function onRequest(context: MakersContext) {
   // 平台没给 waitUntil 时，后台任务照样会跑，只是不保证跑完
   const waitUntil = context.waitUntil?.bind(context) ?? (() => {});
-  return app.fetch(context.request, context.env, { waitUntil, passThroughOnException() {}, props: {} });
+  const target = new URL(context.request.url).pathname.startsWith('/wiki/') ? wiki : app;
+  return target.fetch(context.request, context.env, { waitUntil, passThroughOnException() {}, props: {} });
 }

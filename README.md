@@ -1,6 +1,6 @@
 # 牛牛便利贴
 
-https://clip.liuhetian.life ：这台设备粘贴，那台设备拿走。功能和规则见 [REQUIREMENTS.md](REQUIREMENTS.md)。给 AI 的接口说明在 https://clip.liuhetian.life/ai/ （源文件 `docs/`）。
+https://clip.liuhetian.life ：这台设备粘贴，那台设备拿走。功能和规则见 [REQUIREMENTS.md](REQUIREMENTS.md)。wiki（给 AI 的接口说明）在 https://clip.liuhetian.life/wiki/ （源文件 `docs/`），按 [test-wiki 的子服务规范](../test-wiki/main-wiki/docs/new-subservice.md) 接入主 wiki。
 
 - 页面和接口：EdgeOne Makers 项目 `clip`（中国大陆加速）
 - 元素数据：EdgeOne Blob（存储名 `clipboard`）
@@ -33,11 +33,11 @@ npm run setup     # 环境准备，可重复跑：建项目和环境变量、配
 | `AI_PASSWORD`（可选） | AI 的密码，只能调 `/api/ai/` 下的接口 |
 | `NAMES` | 名字映射，比如 `banana:香蕉,niuniu:牛牛,ai:AI,dami:大米`；请求带的名字必须在这里 |
 | `WEB_NAMES`（可选） | 登录页可选的名字，比如 `banana,niuniu`；不写就是全部 |
-| `ZENSICAL`（可选） | zensical 可执行文件的路径；装在 PATH 里就不用写 |
+| `WIKI_ROOT`（可选） | test-wiki 的位置，默认兄弟目录 `../test-wiki` |
 
 密码和名字映射由 `npm run setup` 写进项目的环境变量，`smoke`、`backup`、`wipe` 会自己去取（以 `NAMES` 里第一个名字的身份调）。脚本和快捷指令的请求头是 `X-Password: 密码#名字`。
 
-文档站用 [Zensical](https://zensical.org) 构建，构建机要 Python 3.11 以上并装 `zensical==0.1.1`（`uv tool install zensical==0.1.1`）。类型检查、测试、打包函数都不需要它。
+wiki 用 [Zensical](https://zensical.org) 构建（`./deploy.sh`，`npm run build` 会调它），`live.js`、`postbuild.py`、Python 环境和占位符的共享用例都用 test-wiki 的：构建机上要有 test-wiki，并在里面 `uv sync` 过。
 
 ## 目录
 
@@ -48,6 +48,7 @@ src/
   server/
     edge.ts        边缘函数入口：接上 EdgeOne Blob 和 COS
     app.ts         把各组路由拼起来
+    wiki.ts        /wiki/<页>.md：docs/ 原文打进函数，占位符换成实时数据（md-render.ts 抄自 test-wiki）
     auth.ts        身份：cookie 或 X-Password: 密码#名字，AI 的密码只放行 /api/ai/
     routes/        接口，按资源分：白板、元素、文件、快捷指令分享、给 AI 的（ai.ts）、登录等；只管取参数和回状态码
     services/      业务规则：新建和修改元素、废纸篓和到期、文件接收（聊天记录压缩包）、自动排位、每天的清理
@@ -59,8 +60,7 @@ src/
     features/      按功能分：board（画布）、items（卡片）、links（连线）、location、sketch、sidebar、dialogs……
                    每种卡片能做的事（右键菜单和卡片工具条共用）在 items/itemActions.ts，加新类型从这里开始
     lib/ ui/ styles/
-  docs/live.ts     文档站的页面脚本：把文档里的占位符换成实时数据（规则在 shared/livedoc.ts，后端渲染 md 也用它）
-docs/              给 AI 的说明（markdown）：zensical 构建成 /ai/ 静态站，后端实时渲染成 /api/ai/index.md
+docs/              wiki 源文件：deploy.sh 构建成 site/，上线时放在 /wiki/（不含 .md）；/wiki/<页>.md 由边缘函数渲染
 scripts/           构建、部署、环境准备、冒烟、备份、清库
 tests/             接口和共用逻辑的测试（helpers.ts 里是内存版的两种存储）
 ```
@@ -84,4 +84,4 @@ tests/             接口和共用逻辑的测试（helpers.ts 里是内存版�
 - **文档预览交给 COS 数据万象**：封面是 `ci-process=doc-preview` 现转的第一页图片，翻看是它自带的在线阅读器，前端没有渲染代码。聊天记录压缩包超过 10 MB 不拆（边缘函数内存装不下）。
 - **提醒只在页面开着时响**：定时任务最小间隔一天；每天 04:00 的定时任务只做清理。
 - **iPhone 分享**：iOS 不支持 Web Share Target，改用快捷指令；它自己分清类型，分别调 `/api/share/text`、`/api/share/link`、`/api/share/location`、`/api/share/file`，服务端不猜内容；搭法在页面侧栏的 i 按钮里。
-- **给 AI 的接口在 `/api/ai/*`**（`routes/ai.ts`）：和网页调同一套 services，只是换个入口、白板能写名字、便利贴默认白色、改文字用「原文换新文」。能调的都列在那个文件里，彻底删除、清空废纸篓、白板管理都不开放。说明文档用 Zensical 构建成 `/ai/` 静态站（静态文件优先于边缘函数，所以接口不能放 `/ai/` 下）；同一份 markdown 打进边缘函数，`/api/ai/index.md` 实时把占位符 `{{ api("…").字段 }}` 换成数据，`/ai.md` 重定向过去。打进函数的是源 markdown：zensical 生成的 md 副本会转义字符、合并换行，占位符会失效，构建完就删掉。
+- **给 AI 的接口在 `/api/ai/*`**（`routes/ai.ts`）：和网页调同一套 services，只是换个入口、白板能写名字、便利贴默认白色、改文字用「原文换新文」。能调的都列在那个文件里，彻底删除、清空废纸篓、白板管理都不开放。说明文档按 test-wiki 的规范放在 `/wiki/`：页面 `/wiki/x/` 是静态站，同一路径的 `/wiki/x.md` 由边缘函数渲染（`server/wiki.ts`）。EdgeOne 上静态文件优先于函数、函数又读不到静态文件，所以 `.md` 不上传、原文打进函数；同一个函数包放在 `/api/` 和 `/wiki/` 两个入口。占位符规则用共享的 `live.js` 和 `md-render.ts`，没登录时显示「加载失败」；接口对所有来源开放跨域，但主 wiki 跨域不带凭据，收纳过去的页面看不到实时数据。

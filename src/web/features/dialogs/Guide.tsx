@@ -58,7 +58,7 @@ export function Guide({ boards }: { boards: Board[] }) {
       </Q>
       <Q title="怎么让 AI 读写白板？">
       <p>把 AI 的密码告诉它，让它每个请求的头部都带 {code('X-Password')} = {code('AI的密码#ai')}。这个密码只能用给 AI 的那组接口，看不了别的。</p>
-      <p>然后让它先读说明：{code(`${origin}/ai.md`)}（带上密码时，里面的白板列表是实时的）。人看的版本在 <a href={`${origin}/ai/`} target="_blank" rel="noreferrer">{`${origin}/ai/`}</a>。</p>
+      <p>然后让它先读说明：{code(`${origin}/wiki/index.md`)}（带上密码时，里面的白板列表是实时的）。人看的版本在 <a href={`${origin}/wiki/`} target="_blank" rel="noreferrer">{`${origin}/wiki/`}</a>。</p>
       </Q>
     </Shell>
   );

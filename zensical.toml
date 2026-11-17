@@ -1,31 +1,40 @@
-# 给人读的接口文档：zensical 把 docs/ 构建成静态站，挂在 /ai/ 下（npm run build:docs，见 scripts/build-docs.ts）。
-# 同一份 markdown 给 AI 读时由边缘函数实时渲染：GET /api/ai/<页>.md（src/server/routes/ai.ts）
+# 牛牛便利贴 wiki（规范：test-wiki/main-wiki/docs/new-subservice.md）
+# deploy.sh 把 docs/ 构建到 site/，npm run build:docs 再把 site/（不含 .md）放进 build/dist/wiki/ 上线。
+# site_url 是本服务对外的地址：路径 /wiki/ 要和 server/wiki.ts、edgeone.json 一致；主 wiki 的 build_main.py 从这里读地址来取数。
+# 页面和接口同源，所以不配 api_base：live.js 没有 <meta name="api-base"> 时请求当前站点（自带登录 cookie）。
+# 给 AI 的 /wiki/<页>.md 由边缘函数渲染（src/server/wiki.ts）。
+
 [project]
-site_name = "牛牛便利贴 · 给 AI 的接口"
-site_url = "https://clip.liuhetian.life/ai/"
-docs_dir = "docs"
-# 在 vite 构建之后跑：vite 会清空 build/dist
-site_dir = "build/dist/ai"
-nav = [
-  { "接口说明" = "index.md" },
-]
-# 由 scripts/build-docs.ts 从 src/docs/live.ts 打包进 build/dist/ai/javascripts/，docs/ 里没有这个文件
+site_name = "牛牛便利贴"
+site_description = "这台设备粘贴，那台设备拿走：给 AI 的读写接口说明（含实时数据）"
+site_url = "https://clip.liuhetian.life/wiki/"
+use_directory_urls = true
 extra_javascript = ["javascripts/live.js"]
+
+nav = [
+  { "给 AI 的说明" = "index.md" },
+]
 
 [project.theme]
 language = "zh"
 # 不从 Google Fonts 拉字体（大陆访问不了），用系统字体
 font = false
 features = [
+  "navigation.sections",
+  "navigation.instant",
+  "navigation.footer",
   "content.code.copy",
-  "content.action.copy",   # 「Copy as Markdown」按钮；live.js 把它指向实时版 /api/ai/<页>.md
+  "search.highlight",
 ]
 
-# llms.txt 索引；顺带生成的每页 md 副本占位符没替换，构建完由 scripts/build-docs.ts 删掉。
-# base_url 让 llms.txt 里的链接指向边缘函数的实时版
-[project.plugins.llmstxt]
-markdown_description = "牛牛便利贴给 AI 的读写接口。请求头带 X-Password: 密码#名字 时，文档里的白板列表是实时的。"
-base_url = "https://clip.liuhetian.life/api/ai/"
-
-[project.plugins.llmstxt.sections]
-"接口" = ["*.md"]
+# 不要启用 macros 插件（会在构建时吃掉 {{ }}），也不要启用 smarty（会把 " 改成弯引号）
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+md_in_html = {}
+tables = {}
+toc.permalink = true
+pymdownx.highlight.anchor_linenums = true
+pymdownx.inlinehilite = {}
+pymdownx.superfences = {}
+pymdownx.tasklist.custom_checkbox = true

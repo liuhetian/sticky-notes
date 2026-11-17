@@ -4,7 +4,7 @@ import { copyFileSync, existsSync, writeFileSync } from 'node:fs';
 import { PROJECT, SITE } from './lib/config';
 import { findProject, makersClient } from './lib/tencent';
 
-for (const f of ['build/dist/index.html', 'build/edge-functions/api/[[default]].js']) {
+for (const f of ['build/dist/index.html', 'build/dist/wiki/index.html', 'build/edge-functions/api/[[default]].js', 'build/edge-functions/wiki/[[default]].js']) {
   if (!existsSync(f)) throw new Error(`缺 ${f}，先 npm run build`);
 }
 copyFileSync('edgeone.json', 'build/edgeone.json');

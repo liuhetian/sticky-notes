@@ -1,43 +1,15 @@
 // 给 AI 用的入口 /api/ai/*：和网页用同一套元素操作（services/items.ts），只是换个入口，白板可以写名字，便利贴默认白色。
 // 能调的都列在这里，别的一律 404：彻底删除、清空废纸篓、白板的新建改名删除都不开放。
-// AI 的密码只能调这下面的接口（auth.ts）；共用密码也能调
+// AI 的密码只能调这下面的接口（auth.ts）；共用密码也能调。说明文档在 /wiki/（server/wiki.ts）
 import { Hono, type Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import index from '../../../docs/index.md?raw';
 import { BATCH, BOARD_MAX, TRASH } from '../../shared/constants';
-import { readResult, renderMarkdown } from '../../shared/livedoc';
 import { CreateItem, MoveItem, PatchItem, type Item } from '../../shared/schema';
 import { countTasks } from '../../shared/todo';
 import type { Env } from '../env';
 import { boardNamed, createItem, itemOr404, listItems, moveItem, patchItem, toTrash } from '../services/items';
 import { files } from './files';
 import { json } from './util';
-
-/** 文档原文，键是相对 docs/ 的路径；加一页就在这里加一行 */
-const PAGES: Record<string, string> = { 'index.md': index };
-
-export type FetchSelf = (req: Request, c: Context<Env>) => Response | Promise<Response>;
-
-/**
- * 给 AI 读的文档 GET /api/ai/<页>.md：docs/ 里的 markdown 原文，占位符换成实时数据（规则在 shared/livedoc.ts）。
- * 不用登录也能读：文档本身不是秘密，没带密码时占位符处写「需要密码」，AI 读完就知道该怎么带。
- * 占位符背后的接口在进程内调（边缘函数请求自己的域名会被平台回 404），带上调用者自己的 X-Password 或 cookie；
- * 它们读存储的次数算在这一次执行的额度里
- */
-export const aiDocs = (fetchSelf: FetchSelf) => new Hono<Env>()
-  // zensical 的 md 副本是 second/index.md，原文是 second.md，两种都认
-  .get('/:page{.+\\.md}', async (c) => {
-    const page = c.req.param('page');
-    const text = PAGES[page] ?? PAGES[page.replace(/\/index\.md$/, '.md')];
-    if (text === undefined) return c.json({ error: '没有这页文档，从 /api/ai/index.md 看起' }, 404);
-    const headers = new Headers();
-    for (const h of ['X-Password', 'Cookie']) {
-      const v = c.req.header(h);
-      if (v !== undefined) headers.set(h, v);
-    }
-    const body = await renderMarkdown(text, async (url) => readResult(await fetchSelf(new Request(new URL(url, c.req.url), { headers }), c)));
-    return c.body(body, 200, { 'Content-Type': 'text/markdown; charset=utf-8' });
-  });
 
 /** 还有没做完的 todo 的便利贴 */
 const hasTodo = (it: Item) => {
@@ -50,7 +22,11 @@ const hasTodo = (it: Item) => {
 const boardOf = async (c: Context<Env>) => (await boardNamed(c.get('ctx'), c.req.param('board')!)).id;
 
 export const ai = new Hono<Env>()
-  .get('/boards', async (c) => c.json({ boards: await c.get('ctx').db.boards() }))
+  // names：白板名连成一行，给文档的占位符用（占位符只能取单个值）
+  .get('/boards', async (c) => {
+    const boards = await c.get('ctx').db.boards();
+    return c.json({ boards, names: boards.map((b) => b.name).join('、') });
+  })
   // 一次读完整块白板，按最近编辑从新到旧；todo=1 只要还有没做完 todo 的便利贴
   .get('/boards/:board', async (c) => {
     const ctx = c.get('ctx');
@@ -87,4 +63,4 @@ export const ai = new Hono<Env>()
     c.json(await moveItem(c.get('ctx'), await boardOf(c), c.req.param('id'), c.req.valid('json'))))
   // 领上传地址、下载文件：和网页同一组接口
   .route('/', files)
-  .all('*', (c) => c.json({ error: '没有这个接口：能调的接口见 /api/ai/index.md' }, 404));
+  .all('*', (c) => c.json({ error: '没有这个接口：能调的接口见 /wiki/index.md' }, 404));

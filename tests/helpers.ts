@@ -1,6 +1,7 @@
 // 测试替身：内存版 Blob（元素数据）和内存版文件存储（COS），外加一个接好它们的 app
 import { BATCH } from '../src/shared/constants';
 import { createApp } from '../src/server/app';
+import { createWiki } from '../src/server/wiki';
 import { Db } from '../src/server/repo/db';
 import type { BlobLike } from '../src/server/storage/blob';
 import type { Disposition, FileStore } from '../src/server/storage/files';
@@ -76,7 +77,14 @@ export function setup() {
     for (let i = 0; i < n; i++) out.push((await call('POST', `/boards/${boardId}/items`, note({ text: `第 ${i} 张`, x: 100 + i * 10, y: 100 }))).data);
     return out;
   };
-  return { blob, files, app, call, boardIds, itemsOf, fill, firstBoard: async () => (await boardIds())[0] };
+  /** wiki 的 Markdown：GET /wiki/<页>.md（默认以牛牛的身份读） */
+  const wikiApp = createWiki(app);
+  async function wiki(path: string, headers: Record<string, string> = AS()) {
+    const res = await wikiApp.request(`/wiki/${path}`, { headers }, ENV);
+    await Promise.all(pending.splice(0));
+    return { status: res.status, text: await res.text(), res };
+  }
+  return { blob, files, app, call, wiki, boardIds, itemsOf, fill, firstBoard: async () => (await boardIds())[0] };
 }
 
 export const note = (over: Record<string, unknown> = {}) => ({ type: 'note', text: '你好', x: 100, y: 100, ...over });

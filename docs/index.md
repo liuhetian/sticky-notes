@@ -12,9 +12,9 @@
 
 ## 现在有哪些白板
 
-白板：{{ api("/api/ai/boards").boards.name.join("、") }}
+白板：{{ api("/api/ai/boards").names }}
 
-对应的 id：{{ api("/api/ai/boards").boards.id.join("、") }}
+（没带密码时上面显示「加载失败」：请求头带上 `X-Password: 密码#名字` 再读这一页。）
 
 接口里的白板写名字或 id 都行（名字放进网址时要做 URL 编码）。「废纸篓」是系统的：删掉的东西在里面留 30 天，可以读、可以放回，但不能往里新建。
 
@@ -79,10 +79,10 @@ curl -X PATCH https://clip.liuhetian.life/api/ai/boards/<白板id>/items/<id> \
 
 ## 关于这份说明
 
-带密码读 `https://clip.liuhetian.life/api/ai/index.md`，上面的白板列表就是此刻的真实数据；给人看的版本在 https://clip.liuhetian.life/ai/ 。
+带密码读 `https://clip.liuhetian.life/wiki/index.md`，上面的白板列表就是此刻的真实数据；给人看的版本在 https://clip.liuhetian.life/wiki/ 。
 
-改这份文档的人看：白板列表是写在文档里的占位符，打开网页或请求实时版时才换成真实数据。写法如下（代码里的不替换，占位符也别放进标题）：
+改这份文档的人看：白板列表是写在文档里的占位符，打开网页或读 `.md` 时才换成真实数据。写法如下（代码里的不替换，占位符也别放进标题；只能取单个值，要列一组就让接口返回拼好的字段）：
 
 ```markdown
-{{ api("/api/ai/boards").boards.name.join("、") }}
+{{ api("/api/ai/boards").names }}
 ```

@@ -3,15 +3,14 @@
   "buildCommand": "",
   "outputDirectory": "./dist",
   "redirects": [
-    { "source": "/ai", "destination": "/ai/", "statusCode": 301 },
-    { "source": "/ai.md", "destination": "/api/ai/index.md", "statusCode": 302 }
+    { "source": "/wiki", "destination": "/wiki/", "statusCode": 301 }
   ],
   "rewrites": [{ "source": "/*", "destination": "/index.html" }],
   "headers": [
     { "source": "/*", "headers": [{ "key": "X-Content-Type-Options", "value": "nosniff" }] },
     { "source": "/assets/*", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
     { "source": "/", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
-    { "source": "/ai/*", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
+    { "source": "/wiki/*", "headers": [{ "key": "Cache-Control", "value": "private, no-store, max-age=0" }] },
     { "source": "/index.html", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
     { "source": "/manifest.webmanifest", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
   ],

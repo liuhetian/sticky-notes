@@ -27,16 +27,19 @@ check('manifest', (await fetch(`${BASE}/manifest.webmanifest`)).status === 200);
 const deep = await fetch(`${BASE}/share/abc123/0123456789abcdef`);
 check('分享链接回首页', deep.status === 200 && (await deep.text()).includes('/assets/'), `${deep.status}，${deep.headers.get('cache-control')}`);
 
-// 给 AI 的文档：静态站在 /ai/，实时 md 在 /api/ai/index.md
-const docs = await fetch(`${BASE}/ai/`);
-check('文档站 /ai/', docs.status === 200 && (await docs.text()).includes('javascripts/live.js'), `${docs.status}，${docs.headers.get('cache-control')}`);
-const bare = await fetch(`${BASE}/ai`, { redirect: 'manual' });
-check('/ai 跳到 /ai/', bare.status === 301 && (bare.headers.get('location') ?? '').endsWith('/ai/'), `${bare.status} ${bare.headers.get('location')}`);
-const short = await fetch(`${BASE}/ai.md`, { redirect: 'manual' });
-check('/ai.md 跳到实时 md', [301, 302, 307, 308].includes(short.status) && (short.headers.get('location') ?? '').endsWith('/api/ai/index.md'), `${short.status} ${short.headers.get('location')}`);
-// 没有这个文件时回的是首页，也不含占位符
-check('静态 md 副本已删', !(await (await fetch(`${BASE}/ai/index.md`)).text()).includes('{{ api('));
-check('实时 md 不带密码：占位符写需要密码', ((await call('GET', '/ai/index.md', undefined, {})).data as string).includes('需要密码'));
+// wiki：页面 /wiki/ 是静态站，同一路径的 /wiki/index.md 由边缘函数渲染（静态站里没有 .md，不会盖住函数）
+const docs = await fetch(`${BASE}/wiki/`);
+const docsHtml = await docs.text();
+check('wiki 页面 /wiki/', docs.status === 200 && docsHtml.includes('javascripts/live.js') && docsHtml.includes('type="text/markdown" href="index.md"'), `${docs.status}，${docs.headers.get('cache-control')}`);
+const bare = await fetch(`${BASE}/wiki`, { redirect: 'manual' });
+check('/wiki 跳到 /wiki/', bare.status === 301 && (bare.headers.get('location') ?? '').endsWith('/wiki/'), `${bare.status} ${bare.headers.get('location')}`);
+const md = async (headers: Record<string, string>) => { const r = await fetch(`${BASE}/wiki/index.md`, { headers }); return { r, text: await r.text() }; };
+const anon = await md({});
+check('wiki md 不带密码：函数渲染，占位符是「加载失败」', anon.r.status === 200 && (anon.r.headers.get('content-type') ?? '').startsWith('text/markdown') && anon.text.includes('白板：加载失败'),
+  `${anon.r.status} ${anon.r.headers.get('content-type')} ${anon.r.headers.get('cache-control')}`);
+const named = await md({ 'X-Password': `${auth.password}#${auth.name}` });
+check('wiki md 带密码：白板名是实时的', named.text.includes('废纸篓') && (named.r.headers.get('cache-control') ?? '').includes('no-store'), named.r.headers.get('cache-control') ?? '');
+check('接口开放跨域', (await call('GET', '/names', undefined, { Origin: 'http://example.com' })).res.headers.get('access-control-allow-origin') === '*');
 
 // 鉴权
 check('匿名 401', (await call('GET', '/boards', undefined, {})).status === 401);

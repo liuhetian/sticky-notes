@@ -59,7 +59,7 @@ async function who(c: Context<Env>): Promise<Who> {
   if (!site && !ai) return { status: 401, error: '密码不对：请求头写成 X-Password: 密码#名字' };
   if (!name) return { status: 401, error: '少了名字：请求头写成 X-Password: 密码#名字' };
   if (!known(c.env, name)) return { status: 401, error: `不认识「${name}」这个名字，可用的有：${Object.keys(namesOf(c.env)).join('、')}` };
-  if (ai && !c.req.path.startsWith('/api/ai/')) return { status: 403, error: 'AI 的密码只能调 /api/ai/ 下的接口，说明见 /api/ai/index.md' };
+  if (ai && !c.req.path.startsWith('/api/ai/')) return { status: 403, error: 'AI 的密码只能调 /api/ai/ 下的接口，说明见 /wiki/index.md' };
   return { name };
 }
 
