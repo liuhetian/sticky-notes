@@ -262,13 +262,6 @@ describe('废纸篓', () => {
 describe('故障白板', () => {
   const fault = (over: Record<string, unknown> = {}) => ({ at: Date.UTC(2026, 10, 18, 13, 3, 5), method: 'GET', path: '/api/boards/abc/etags', status: 545, ms: 412, ...over });
 
-  it('老数据里没有就补上，排在废纸篓前，只补一次', async () => {
-    await t.blob.setJSON('boards.json', { boards: [{ id: 'a1', name: '共用', createdAt: 1 }, { id: 'trash', name: '废纸篓', createdAt: 1 }] });
-    expect((await t.call('GET', '/boards')).data.boards.map((b: any) => b.id)).toEqual(['a1', FAULTS, 'trash']);
-    expect((await t.blob.get('boards.json')).boards).toHaveLength(3);
-    expect((await t.call('GET', '/boards')).data.boards).toHaveLength(3);
-  });
-
   it('不能改名、不能删、不能往上贴、不能挪进去；删掉的能从废纸篓放回来', async () => {
     const [a] = await t.boardIds();
     expect((await t.call('PATCH', `/boards/${FAULTS}`, { name: 'x' })).status).toBe(400);
@@ -278,6 +271,10 @@ describe('故障白板', () => {
     const mine = (await t.call('POST', `/boards/${a}/items`, note())).data;
     expect((await t.call('POST', `/boards/${a}/items/${mine.id}/move`, { to: '故障' })).status).toBe(400);
     const f = (await t.call('POST', '/faults', { faults: [fault()] })).data;
+    // AI 只能读和删，不能改、不能挪走
+    const aiPath = `/ai/boards/${encodeURIComponent('故障')}/items/${f.id}`;
+    expect((await t.call('PATCH', aiPath, { old: '接口', new: 'x' }, AS('ai', 'ai-test'))).status).toBe(400);
+    expect((await t.call('POST', `${aiPath}/move`, { to: '共用' }, AS('ai', 'ai-test'))).status).toBe(400);
     expect((await t.call('DELETE', `/boards/${FAULTS}/items/${f.id}`)).data.item).toMatchObject({ boardId: 'trash', from: FAULTS });
     expect((await t.call('POST', `/boards/trash/items/${f.id}/move`, {})).data.to).toBe(FAULTS);
   });
@@ -366,6 +363,10 @@ describe('提醒', () => {
     const r = (await t.call('PATCH', `/boards/${b}/items/${it.id}`, { remindAt: at })).data;
     expect(r.expiresAt).toBe(at + DAY);
     expect((await t.call('GET', '/reminders')).data.reminders).toEqual([{ itemId: it.id, boardId: b, remindAt: at }]);
+    // 索引那一步没写上（存储偶尔 504）：再设一次同样的时间能补回来
+    await t.blob.delete([...t.blob.data.keys()].find((k) => k.startsWith('reminders/'))!);
+    await t.call('PATCH', `/boards/${b}/items/${it.id}`, { remindAt: at });
+    expect((await t.call('GET', '/reminders')).data.reminders).toHaveLength(1);
     await t.call('PATCH', `/boards/${b}/items/${it.id}`, { remindAt: at + 1000 });
     expect((await t.call('GET', '/reminders')).data.reminders).toEqual([{ itemId: it.id, boardId: b, remindAt: at + 1000 }]);
     await t.call('PATCH', `/boards/${b}/items/${it.id}`, { remindDone: true });
@@ -533,6 +534,23 @@ describe('每天的清理', () => {
     expect(t.files.data.has(old)).toBe(true);
     expect(await t.blob.get('cleanup/state.json')).toBeNull();
     expect((await t.call('POST', '/cron/cleanup', undefined, {})).data.done).toBe(false);
+  });
+  it('两批之间别处彻底删了排在前面的元素：后面的不会被跳过，文件还在', async () => {
+    const b = await t.firstBoard();
+    const made: any[] = [];
+    for (let i = 0; i < 30; i++) {
+      const id = newFileId(Date.now() - 2 * DAY);
+      t.files.upload(id, 'x');
+      made.push((await t.call('POST', `/boards/${b}/items`, { type: 'file', file: { id, name: 'a.bin', size: 1, mime: '' }, x: i, y: 1 })).data);
+    }
+    let r = await t.call('POST', '/cron/cleanup', undefined, {});
+    // 第一批看过的里面删掉一个（进废纸篓再彻底删），名单往前挪一位
+    const first = made.map((m) => m.id).sort()[0];
+    await t.call('DELETE', `/boards/${b}/items/${first}`);
+    await t.call('DELETE', `/boards/trash/items/${first}`);
+    for (let n = 0; !r.data.done && n < 20; n++) r = await t.call('POST', '/cron/cleanup', undefined, {});
+    expect(r.data).toMatchObject({ orphanFiles: 0, done: true });
+    expect(t.files.data.size).toBe(29);
   });
   it('废纸篓超出 50 个的也修剪掉，修剪和收尾不在同一次调用里', async () => {
     const [a, b] = await t.boardIds();

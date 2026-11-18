@@ -1,12 +1,12 @@
 // 给 iPhone 快捷指令用：白板可以直接写名字，位置由服务端挑，固定保留默认时长；白板满了就拒绝。
 // 快捷指令自己分清类型，一种类型一个接口：文字、链接、位置、文件；这里不猜内容
 import { Hono } from 'hono';
-import { DEFAULT_TTL, extOf, fileKind, imageMime } from '../../shared/constants';
+import { DEFAULT_TTL, extOf, fileKind, imageMime, safeName } from '../../shared/constants';
 import { newFileId } from '../../shared/ids';
 import { sizeOf } from '../../shared/layout';
 import { ShareFile, ShareLink, ShareLocation, ShareText, type Board, type FileRef, type Item } from '../../shared/schema';
 import type { Ctx, Env } from '../env';
-import { boardForNew, newItemBase, safeName, spotFor } from '../services/items';
+import { boardForNew, newItemBase, spotFor } from '../services/items';
 import { placeOfLink } from '../services/maplink';
 import { json } from './util';
 

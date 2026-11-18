@@ -1,7 +1,7 @@
 // 元素的业务规则：新建、修改、删除（进废纸篓）、到期、换白板、彻底删除；白板上限、废纸篓修剪。
 // 网页、快捷指令、AI 三个入口都调这里，路由只管取参数和回状态码
 import { HTTPException } from 'hono/http-exception';
-import { BATCH, BOARD_FULL, BOARD_MAX, DEFAULT_TTL, FAULTS, TRASH, TRASH_KEEP, expiryFrom, isAlive } from '../../shared/constants';
+import { BATCH, BOARD_FULL, BOARD_MAX, DEFAULT_TTL, FAULTS, TRASH, TRASH_KEEP, expiryFrom, isAlive, safeName } from '../../shared/constants';
 import { newId } from '../../shared/ids';
 import { isFileLike, itemBase, mergePatch } from '../../shared/items';
 import { sizeOf, type Pos, type Size } from '../../shared/layout';
@@ -12,9 +12,6 @@ import { autoPlace } from './place';
 
 /** 读白板时顺手做的事（到期的挪走、「上传中」的转正）一次最多几个：读整块白板已经用掉大半请求额度 */
 export const CHANGES = 2;
-
-/** 文件名里不能有路径分隔符和控制字符 */
-export const safeName = (s: string) => s.replace(/[\\/\u0000-\u001f]/g, '_').slice(0, 200) || 'file';
 
 /** 按 id 或名字找白板；找不到时把现有的白板列出来，方便照着改 */
 export async function boardNamed(ctx: Ctx, idOrName: string): Promise<Board> {

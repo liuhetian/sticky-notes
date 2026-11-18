@@ -15,3 +15,5 @@ export function enqueue<T>(job: () => Promise<T>): Promise<T> {
 export const isWriting = () => pending > 0;
 /** 每写完一次加 1：拉数据前后对一下，中间写过就丢掉这次拉的结果 */
 export const writeSeq = () => seq;
+/** 排着的都写完了 */
+export const writesDone = () => chain;

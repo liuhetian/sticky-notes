@@ -1,10 +1,9 @@
 // 文件：领上传地址、下载。文件本体在 COS，这里只发有时效的地址
 import { Hono } from 'hono';
-import { DOC_EXT, FILE_ID_RE, INLINE_IMAGE_EXT, MEDIA_EXT, extOf } from '../../shared/constants';
+import { DOC_EXT, FILE_ID_RE, INLINE_IMAGE_EXT, MEDIA_EXT, extOf, safeName } from '../../shared/constants';
 import { newFileId } from '../../shared/ids';
 import { UploadRequest } from '../../shared/schema';
 import type { Env } from '../env';
-import { safeName } from '../services/items';
 import { json } from './util';
 
 export const files = new Hono<Env>()

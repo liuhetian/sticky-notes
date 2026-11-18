@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { FAULTS, fileKind, isAlive, isSystemBoard } from '@/shared/constants';
 import type { Item } from '@/shared/schema';
-import { api, authLost, serverNow, unwrap } from './api/client';
+import { ApiError, api, authLost, serverNow, unwrap } from './api/client';
 import { Login } from './features/auth/Login';
 import { BoardView } from './features/board/Board';
 import { RefreshButton } from './features/board/RefreshButton';
@@ -23,14 +23,22 @@ import { Logo } from './ui/Logo';
 
 export function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
+  const [failed, setFailed] = useState('');
   const qc = useQueryClient();
+  // 登录过、cookie 里有名字才算登录；名字记下来，本机先改界面时卡片角落先显示自己。
+  // 只有 401 是没登录；别的失败（545、504、网络不通）留在这一屏，点一下重试
+  const check = useCallback(() => {
+    setFailed('');
+    unwrap<{ name: string }>(api.me.$get()).then(({ name }) => { meStore.set(name); setAuthed(true); },
+      (e) => (e instanceof ApiError && e.status === 401 ? setAuthed(false) : setFailed(e instanceof ApiError ? e.message : '连不上服务器')));
+  }, []);
   useEffect(() => {
-    // 登录过、cookie 里有名字才算登录；名字记下来，本机先改界面时卡片角落先显示自己
-    unwrap<{ name: string }>(api.me.$get()).then(({ name }) => { meStore.set(name); setAuthed(true); }, () => setAuthed(false));
+    check();
     const lost = () => { setAuthed(false); qc.clear(); };
     authLost.addEventListener('lost', lost);
     return () => authLost.removeEventListener('lost', lost);
-  }, [qc]);
+  }, [qc, check]);
+  if (failed) return <div className="splash-err"><div>{failed}</div><button type="button" className="btn" onClick={check}>重试</button></div>;
   if (authed === null) return <div className="splash"><Logo /></div>;
   if (!authed) return <Login onDone={(name) => { meStore.set(name); setAuthed(true); }} />;
   return <Main />;

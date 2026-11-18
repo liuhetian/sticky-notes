@@ -3,7 +3,7 @@
 // AI 的密码只能调这下面的接口（auth.ts）；共用密码也能调。说明文档是 /wiki/ai-api.md（docs/ai-api.md，server/wiki.ts）
 import { Hono, type Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { BATCH, BOARD_MAX, TRASH } from '../../shared/constants';
+import { BATCH, BOARD_MAX, FAULTS, TRASH } from '../../shared/constants';
 import { CreateItem, MoveItem, PatchItem, type Item } from '../../shared/schema';
 import { countTasks } from '../../shared/todo';
 import type { Env } from '../env';
@@ -20,6 +20,13 @@ const hasTodo = (it: Item) => {
 
 /** 路径里的白板（名字或 id）→ id */
 const boardOf = async (c: Context<Env>) => (await boardNamed(c.get('ctx'), c.req.param('board')!)).id;
+
+/** 要改、要挪的元素所在的白板：故障白板上的记录只能读和删 */
+const editableBoardOf = async (c: Context<Env>) => {
+  const id = await boardOf(c);
+  if (id === FAULTS) throw new HTTPException(400, { message: '故障白板上的记录只能读和删' });
+  return id;
+};
 
 export const ai = new Hono<Env>()
   // names：白板名连成一行，给文档的占位符用（占位符只能取单个值）
@@ -48,7 +55,7 @@ export const ai = new Hono<Env>()
   })
   .patch('/boards/:board/items/:id', json(PatchItem), async (c) => {
     const ctx = c.get('ctx');
-    const r = await patchItem(ctx, await itemOr404(ctx, await boardOf(c), c.req.param('id')), c.req.valid('json'));
+    const r = await patchItem(ctx, await itemOr404(ctx, await editableBoardOf(c), c.req.param('id')), c.req.valid('json'));
     return 'conflict' in r ? c.json({ error: r.error, item: r.conflict }, 409) : c.json(r.item);
   })
   // 删除是进废纸篓，可以放回；不能彻底删除
@@ -60,7 +67,7 @@ export const ai = new Hono<Env>()
   })
   // 挪到另一块白板（to 写名字或 id）；从废纸篓里不写 to 就放回原处
   .post('/boards/:board/items/:id/move', json(MoveItem), async (c) =>
-    c.json(await moveItem(c.get('ctx'), await boardOf(c), c.req.param('id'), c.req.valid('json'))))
+    c.json(await moveItem(c.get('ctx'), await editableBoardOf(c), c.req.param('id'), c.req.valid('json'))))
   // 领上传地址、下载文件：和网页同一组接口
   .route('/', files)
   .all('*', (c) => c.json({ error: '没有这个接口：能调的接口见 /wiki/ai-api.md' }, 404));

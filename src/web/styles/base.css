@@ -22,6 +22,7 @@ button { cursor: pointer; }
 .ic { display: inline-flex; }
 .ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .splash { height: 100%; display: grid; place-items: center; animation: breathe 1.4s ease-in-out infinite; }
+.splash-err { height: 100%; display: grid; place-content: center; justify-items: center; gap: 14px; }
 .splash .logo { width: 64px; height: 64px; }
 @keyframes breathe { 50% { opacity: .4; transform: scale(.92); } }
 /* 自己画的滚动条（ui/Scroll）：细、暖色，鼠标放上去变粗 */

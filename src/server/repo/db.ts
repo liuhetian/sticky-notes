@@ -21,14 +21,13 @@ export class Db {
   // ── 白板 ──
   async boards(): Promise<Board[]> {
     const doc: { boards: Board[] } | null = await this.blob.get('boards.json', { type: 'json' });
-    // 故障白板是后加的：已有的白板列表里没有就补上，只补这一次
-    if (doc?.boards.some((b) => b.id === FAULTS)) return doc.boards;
+    if (doc) return doc.boards;
     const now = Date.now();
-    const boards: Board[] = doc?.boards ?? [
+    return this.saveBoards([
       ...SEED.map((name, i) => ({ id: newBoardId(), name, createdAt: now + i })),
+      { id: FAULTS, name: '故障', createdAt: now },
       { id: TRASH, name: '废纸篓', createdAt: now },
-    ];
-    return this.saveBoards([...boards, { id: FAULTS, name: '故障', createdAt: now }]);
+    ]);
   }
 
   /** 普通白板在前，故障白板、废纸篓排最后；返回排好的 */
@@ -101,8 +100,8 @@ export class Db {
   // ── 提醒索引 ──
   private async syncReminder(prev: Item | null, next: Item | null) {
     const a = reminderOf(prev), b = reminderOf(next);
-    if (a === b) return;
-    if (a) await this.blob.delete(a);
+    if (a && a !== b) await this.blob.delete(a);
+    // 没变也照写：上一次元素存上了、这一步却失败的话，靠下一次写补回来
     if (b) await this.blob.setJSON(b, 1);
   }
 

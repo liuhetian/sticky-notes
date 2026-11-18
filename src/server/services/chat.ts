@@ -3,7 +3,7 @@
 //   聊天记录内的图片、视频和文件/…        有图片视频文件时才有
 // txt 排成便利贴能看的样子；图片和文件解出来另存成单独的卡片（有个数上限）；超出的不解，留在压缩包里。压缩包本身太大就不拆
 import { unzipSync } from 'fflate';
-import { MAX_TEXT } from '../../shared/constants';
+import { MAX_TEXT, safeName } from '../../shared/constants';
 import { addRef, refLink, type Ref } from '../../shared/refs';
 
 export const CHAT_ZIP = /^聊天记录.*\.zip$/i;
@@ -62,7 +62,6 @@ function fixName(name: string) {
   if (!/[\u0080-ÿ]/.test(name) || /[^\u0000-ÿ]/.test(name)) return name;
   return decode(Uint8Array.from(name, (c) => c.charCodeAt(0))) ?? name;
 }
-const baseName = (path: string) => path.split('/').pop()!.replace(/[\u0000-\u001f\\]/g, '').slice(-200) || 'file';
 
 export type ChatPart = { name: string; data: Uint8Array };
 export type Chat = {
@@ -109,7 +108,7 @@ export function readChatZip(buf: ArrayBuffer | null, room = Infinity): Chat | nu
   const at = (name: string) => { const i = raw.indexOf(name); return i < 0 ? Infinity : i; };
   const parts = entries
     .filter(([n]) => !/\.txt$/i.test(n))
-    .map(([n, data]) => ({ name: baseName(n), data }))
+    .map(([n, data]) => ({ name: safeName(n.split('/').pop()!), data }))
     .sort((a, b) => at(a.name) - at(b.name));
   // 压缩包要留下（有没拆的），而位置刚好被拆出来的占满：聊天里最后出现的那个不拆了，给压缩包让位
   if (others && parts.length && parts.length >= room) { parts.pop(); others++; }

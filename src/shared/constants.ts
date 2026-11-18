@@ -46,6 +46,8 @@ export const BOARD_FULL = `这块白板满了（${BOARD_MAX} 个），先清理�
 export const FILE_ID_RE = /^[0-9a-z]{6,12}-[0-9a-f]{24}$/;
 export const ITEM_ID_RE = /^[0-9a-f]{16}$/;
 
+/** 文件名里不能有路径分隔符和控制字符 */
+export const safeName = (s: string) => s.replace(/[\\/\u0000-\u001f]/g, '_').slice(0, 200) || 'file';
 export const extOf = (name: string) => (name.includes('.') ? name.split('.').pop()!.toLowerCase() : '');
 /** 按扩展名认图片：网页上传、快捷指令、聊天记录拆包都按这一条分图片卡和文件卡 */
 export const imageMime = (name: string) => INLINE_IMAGE_EXT[extOf(name)] ?? '';

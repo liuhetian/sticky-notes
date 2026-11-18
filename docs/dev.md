@@ -27,23 +27,23 @@ description: "牛牛便利贴的开发说明：一次请求从静态文件到边
 6. 路由只取参数、回状态码，规则都在 `src/server/services/`
 7. services 读写两种存储：元素在 EdgeOne Blob（`src/server/repo/db.ts`），文件在 COS（`src/server/storage/files.ts`）
 
-**文件不经过函数**：上传是浏览器拿预签名地址直接 PUT 到 COS，显示和下载是 302 到 COS 的临时地址。只有要读像素的地方走 `?raw=1` 由本站转发（`src/server/routes/files.ts:28`）。
+**文件不经过函数**：上传是浏览器拿预签名地址直接 PUT 到 COS，显示和下载是 302 到 COS 的临时地址。只有要读像素的地方走 `?raw=1` 由本站转发（`src/server/routes/files.ts:27`）。
 
 ### 后台在做的事
 
-- **每天 04:00 的定时任务**只推一批清理（`src/server/services/cleanup.ts:20`，一批 15 个元素）。剩下的由页面打开时接着调（`src/web/state/cleanup.ts`，每台设备每天一次）
+- **每天 04:00 的定时任务**只推一批清理（`src/server/services/cleanup.ts:23`，一批 15 个元素）。剩下的由页面打开时接着调（`src/web/state/cleanup.ts`，每台设备每天一次）
 - **响应发出后接着做**：`ctx.defer` 包的是平台的 `waitUntil`（`src/server/edge.ts:22`），失败只记日志
 - **接口失败自动上报**（[需求](requirements.md)「失败上报」）：前端所有接口调用都过 `apiFetch`（`src/web/api/client.ts:45`），5xx 和网络不通记在本机，下一次请求成功时报给 `POST /api/faults`，在故障白板上建一张便利贴（`src/server/services/faults.ts:19`）。它在 react-query 的 `retry: 1`（`src/web/main.tsx:11`）下面，重试救回来的那次也记得到
 
 ### 容易忽略的行为
 
-- **读白板会写**：`listItems`（`src/server/services/items.ts:194`）顺手把到期的挪进废纸篓、把「上传中」且文件已到的转成正式卡片，一次最多 2 个。备份、AI 读白板、冒烟都会触发
+- **读白板会写**：`listItems`（`src/server/services/items.ts:191`）顺手把到期的挪进废纸篓、把「上传中」且文件已到的转成正式卡片，一次最多 2 个。备份、AI 读白板、冒烟都会触发
 - **快捷指令传文件是先建元素后传**：`/api/share/file` 先存一个 `pending` 的元素再回上传地址（`src/server/routes/share.ts:56`），文件到没到要等下一次读白板才知道
 - **聊天记录压缩包是在读白板时拆的**（快捷指令传来的）：拆包失败不抛错，退回成普通文件卡片（`src/server/services/intake.ts:26`），否则下一轮同步会再拆一遍
 - **`/api/cron/cleanup` 不用登录**：只做清理，谁调都无害（`src/server/routes/auth.ts:25`）
 - **AI 的密码是在 `requireAuth` 里按路径前缀拦的**（`src/server/auth.ts:62`），不是按路由：AI 入口下新挂的路由自动对 AI 的密码开放，包括复用的上传和下载
 - **直接 `fetch` 本站接口要用 `apiFetch`**，不然失败记不到。`<img src>` 加载的图片和 COS 直传失败都记不到
-- **故障白板是系统白板**（`src/shared/constants.ts:4`）：和废纸篓一样不能删、改名、往上贴；老数据里没有时，第一次读白板列表补上（`src/server/repo/db.ts:24`）。一次上报只读一遍整块白板，挑最早的删、挑空位都用这一份，约 55 个请求
+- **故障白板是系统白板**（`src/shared/constants.ts:4`）：和废纸篓一样不能删、改名、往上贴，第一次读白板列表时和别的白板一起建好（`src/server/repo/db.ts:24`）。一次上报只读一遍整块白板，挑最早的删、挑空位都用这一份，约 55 个请求
 - **`npm run dev` 的 `/api` 连的是线上**（`vite.config.ts:11`）
 
 ## 代码地图
@@ -55,21 +55,21 @@ description: "牛牛便利贴的开发说明：一次请求从静态文件到边
 | 元素的基础字段和合并规则，前后端共用 | `src/shared/items.ts:19` |
 | 便利贴里的引用怎么解析、增删 | `src/shared/refs.ts:25` |
 | 存储里的对象布局 | `src/server/repo/db.ts:1` |
-| 一次读多个元素（先读一个再并发） | `src/server/repo/db.ts:63` |
-| 提醒索引跟着元素写入同步 | `src/server/repo/db.ts:102` |
-| 新建、白板满了拒绝 | `src/server/services/items.ts:73`、`:43` |
-| 改元素、文字冲突、「原文换新文」 | `src/server/services/items.ts:110`、`:96` |
-| 删除进废纸篓、废纸篓修剪 | `src/server/services/items.ts:146`、`:238` |
+| 一次读多个元素（先读一个再并发） | `src/server/repo/db.ts:62` |
+| 提醒索引跟着元素写入同步 | `src/server/repo/db.ts:101` |
+| 新建、白板满了拒绝 | `src/server/services/items.ts:70`、`:40` |
+| 改元素、文字冲突、「原文换新文」 | `src/server/services/items.ts:107`、`:93` |
+| 删除进废纸篓、废纸篓修剪 | `src/server/services/items.ts:143`、`:235` |
 | 文件变成什么卡片、聊天记录拆包 | `src/server/services/intake.ts:39`、`src/server/services/chat.ts` |
 | 新元素自动挑空位 | `src/server/services/place.ts` |
 | 接口失败的记录和上报、故障白板 | `src/web/api/client.ts:45`、`src/server/services/faults.ts` |
 | 地图 App 的分享链接解成坐标 | `src/server/services/maplink.ts`、`src/shared/geo.ts` |
 | 身份：cookie、`密码#名字`、AI 密码的范围 | `src/server/auth.ts:45` |
-| 给 AI 的入口，能调的全列在这 | `src/server/routes/ai.ts:24` |
+| 给 AI 的入口，能调的全列在这 | `src/server/routes/ai.ts:31` |
 | `/wiki/<页>.md`：原文、占位符替换 | `src/server/wiki.ts:21`、`src/server/md-render.ts` |
 | COS 签名 | `src/server/storage/cos-sign.ts` |
 | 前端写操作的唯一入口（乐观更新、回滚、撤销） | `src/web/state/actions.ts:40` |
-| 前端同步：比 etag、什么时候拉 | `src/web/state/queries.ts:84` |
+| 前端同步：比 etag、什么时候拉 | `src/web/state/queries.ts:86` |
 | 每种卡片能做的事，加新类型从这开始 | `src/web/features/items/itemActions.ts:15` |
 | 边缘函数怎么打包 | `scripts/build-edge.ts` |
 | 文档站怎么构建、怎么进 `build/` | `deploy.sh`、`scripts/build-docs.ts` |
@@ -92,7 +92,7 @@ npm test            # vitest，约 110 个用例，不到 1 秒
 都是线上实测出来的，本地和测试里复现不了。
 
 - **一次执行大约只能发 62 个请求**（实测 62～64 浮动），读一个元素算一个，超了存储报错。白板上限 50、读白板顺手只做 2 件事、清空废纸篓每次 6 个、清理每批 15 个，全是从这个数倒推的。要加「读的时候顺手做」的事，先数额度（`src/shared/constants.ts:41`）
-- **新建的 store 没凭据时并发读，每个读各换一次凭据**，一个元素算两个请求。所以 `getItems` 先单独读一个再并发（`src/server/repo/db.ts:63`），别改回纯并发
+- **新建的 store 没凭据时并发读，每个读各换一次凭据**，一个元素算两个请求。所以 `getItems` 先单独读一个再并发（`src/server/repo/db.ts:62`），别改回纯并发
 - **`BOARD_MAX` 不能大于 `BATCH`**：读白板要一次读完
 - **545（响应体是平台的 `Error return from script`）是冷启动被平台掐掉**，跟读多少个、碰不碰存储无关：不读存储的 `/api/names` 一样出，同一批节点上 8 KB 的函数（eo-lock）一次不出，545 全落在最慢的那批冷启动里。冷启动的 CPU 花在解析和执行函数包上，所以**函数包要小**：包里的代码超过 350 KB 构建就失败（`scripts/build-edge.ts:42`；打进来的文档原文和首页是文字，不拖累冷启动，不算）。2026-11-17 实测：包 641 KB 时「静默 30 秒再并发 6 个」一次 24% 失败、一次 1%，起伏很大（可能跟刚部署完没有编译缓存有关，没核实）；改到 291 KB 后同样测法 0/72，钉住两个节点各连发 200 次 0 个（改前 14 个），冷启动那批请求快了 60～90 ms
 - **存储偶尔个别请求 504**，和读多少个无关。别在读失败时做不可逆的事；页面下一次同步会再读，失败会报到故障白板
@@ -114,10 +114,12 @@ npm test            # vitest，约 110 个用例，不到 1 秒
 ## 数据和代码上的坑
 
 - **不做旧数据兼容**：改了 `src/shared/schema.ts` 里元素的必填字段，上线前要清库，见[运维 · 备份和清库](ops.md)
-- **没有事务**：换白板是先写新位置再删旧位置，中途失败会短暂多一份。并发时谁盖谁的规则见[需求](requirements.md)「同步与并发」
+- **没有事务**：换白板是先写新位置再删旧位置，中途失败会多出一份，不会自己合并，要手动删。并发时谁盖谁的规则见[需求](requirements.md)「同步与并发」
 - **改元素只覆盖带来的字段**，合并规则只有 `src/shared/items.ts:19` 一份，服务端存和前端先改界面都用它。在别处另写一份，界面和存下来的就会不一致
+- **每天的清理记的是「看到哪个 id」，不是「第几个」**（`src/server/services/cleanup.ts:19`）：两批之间别处会删、会加元素，按位置接着看会跳过一个，它的文件就在收尾时被当成没人引用的删掉。收尾只删这一轮开始前一天以上的文件
+- **提醒索引每次写元素都照写一遍**（`src/server/repo/db.ts:101`）：元素存上了、索引那一步失败时，靠下一次写补回来，别加「没变就跳过」
 - **`by`、`editedAt` 只在新建和改内容时更新**（[需求](requirements.md)「元素」）：AI 读白板按 `editedAt` 排序靠的就是这条，新加的写操作别顺手更新它
-- **聊天记录压缩包在白板快满时拆包可能超出请求额度**，这一点没处理
+- **聊天记录压缩包拆包可能超出请求额度**，这一点没处理：拆一个文件要写一次 COS、一次存储，白板越空拆得越多（最多 30 个）；COS 的请求算不算进额度没核实
 - **zod 只能写成 `import * as z from 'zod'`**：写成 `import { z }`，esbuild 会把整个命名空间连同几十种语言的报错文案打进函数包（zod 443 KB，整包 641 KB；改了以后 94 KB、291 KB），冷启动慢一截。写回去整包会超过 350 KB 的预算，构建失败并列出 zod 占多少
 - **路由别叫 `index`**：`hono/client` 把它当成这一层的根路径（`src/server/routes/items.ts:16`）
 - **`tsx` 不认 `?raw` 导入**：`scripts/` 下的脚本别间接引到 `src/server/wiki.ts`（也就是别引 `edge.ts`）。`?raw` 在打包时由 `scripts/build-edge.ts:7` 的插件处理，测试里由 vitest 处理
@@ -136,7 +138,7 @@ npm test            # vitest，约 110 个用例，不到 1 秒
 
 其他规矩：
 
-- **`index.md` 是项目入口**，[requirements.md](requirements.md) 正文归用户管、不代改，给 AI 的接口说明是 [ai-api.md](ai-api.md)。接口报错里指的、页面 i 按钮里写的都是 `/wiki/ai-api.md`，改文件名要一起改（`src/server/auth.ts:62`、`src/server/routes/ai.ts:66`、`src/web/features/dialogs/Guide.tsx`、`scripts/smoke.ts`）
+- **`index.md` 是项目入口**，[requirements.md](requirements.md) 正文归用户管、不代改，给 AI 的接口说明是 [ai-api.md](ai-api.md)。接口报错里指的、页面 i 按钮里写的都是 `/wiki/ai-api.md`，改文件名要一起改（`src/server/auth.ts:62`、`src/server/routes/ai.ts:73`、`src/web/features/dialogs/Guide.tsx`、`scripts/smoke.ts`）
 - **`docs/javascripts/live.js` 是构建时从 test-wiki 复制来的**，不进 git，别在这里改
 - **`docs/.meta.yml` 是给主 wiki 用的接口地址**，本站用不上，别删
 - 本地只构建文档站：`./deploy.sh`，产物在 `site/`，会报出失效的相对链接
@@ -150,7 +152,7 @@ npm test            # vitest，约 110 个用例，不到 1 秒
 ```
 
 - **省着用**：一页里所有占位符读存储的次数，都算在读这页 `.md` 那一次函数执行的额度里。**别引用读整块白板的接口**
-- 只能取单个值；要列一组，让接口返回拼好的字段（`names` 就是为此加的，`src/server/routes/ai.ts:28`）
+- 只能取单个值；要列一组，让接口返回拼好的字段（`names` 就是为此加的，`src/server/routes/ai.ts:33`）
 - 没登录、没带密码时显示「加载失败」，正文里要写明带密码再读
 - 代码块和行内代码里的不替换，用来写示例；占位符别放进标题
 - 新增之前先读 `src/server/wiki.ts` 开头的注释

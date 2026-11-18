@@ -185,10 +185,10 @@ export function createActions(qc: QueryClient) {
       ownRev.set(r.item.id, r.item.rev);
       // 目标白板的数据已经在本机：直接放进去，不等下一轮同步
       if (qc.getQueryData(qk.items(r.to))) upsert(r.to, r.item);
-      if (r.to === TRASH) pruneTrash(); else refresh(r.to);
+      refresh(r.to);
       qc.invalidateQueries({ queryKey: qk.reminders });
       if (o.record !== false && boardId !== TRASH) {
-        pushUndo({ label: r.to === TRASH ? '丢入废纸篓' : '移到其他白板', run: () => moveBack(item, r.item) });
+        pushUndo({ label: '移到其他白板', run: () => moveBack(item, r.item) });
       }
       return r;
     } catch (e) {

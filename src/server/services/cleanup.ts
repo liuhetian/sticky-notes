@@ -12,36 +12,38 @@ import { CHANGES, expire, fileIdsOf, pruneTrash, purge } from './items';
 const READS = 15, SWEEP = 20;
 
 export type CleanupStats = { expired: number; stalePending: number; trashPruned: number; orphanFiles: number };
-/** at 是下一批从第几个元素开始 */
-type Scratch = { at: number; stats: CleanupStats; referenced: string[] };
-const fresh = (): Scratch => ({ at: 0, stats: { expired: 0, stalePending: 0, trashPruned: 0, orphanFiles: 0 }, referenced: [] });
+/**
+ * after 是上一批看到的最后一个元素的 id，下一批从比它大的接着看：记 id 不记位置，两批之间别处删了、加了都不会错位。
+ * startedAt 是这一轮开始的时间：这一轮中途新建的元素可能没被看到，收尾时不碰它们的文件
+ */
+type Scratch = { after: string; startedAt: number; stats: CleanupStats; referenced: string[] };
+const fresh = (now: number): Scratch => ({ after: '', startedAt: now, stats: { expired: 0, stalePending: 0, trashPruned: 0, orphanFiles: 0 }, referenced: [] });
 
 /** 接着上次的进度清一批。返回这一轮累计的结果；done 是这一轮全部做完了（下次调用开始新的一轮） */
 export async function cleanup(ctx: Ctx, now = Date.now()): Promise<CleanupStats & { done: boolean }> {
   const { db, files } = ctx;
   const all = await db.everything();
-  const s = (await db.scratch<Scratch>()) ?? fresh();
-  const at = s.at;
+  const s = (await db.scratch<Scratch>()) ?? fresh(now);
+  const at = all.findIndex((e) => e.id > s.after);
 
   // 收尾要靠前面各批攒下的「哪些文件还有人用」，所以一轮里至少先过一批（一个元素都没有时除外）
-  if (at < all.length) {
-    let i = at, changes = 0, gone = 0;
+  if (at >= 0) {
+    let i = at, changes = 0;
     for (; i < all.length && i - at < READS && changes < CHANGES; i++) {
       const it = await db.getItem(all[i].boardId, all[i].id);
       if (!it) continue;
       // 快捷指令建了「上传中」的卡片，文件却一天都没传上来
       const stale = isFileLike(it) && it.pending && now - it.createdAt > DAY && (await files.size(it.file.id)) === null;
-      if (stale) { await purge(ctx, it); s.stats.stalePending++; changes++; gone++; continue; }
+      if (stale) { await purge(ctx, it); s.stats.stalePending++; changes++; continue; }
       if (!isAlive(it, now)) {
         await expire(ctx, it);
         s.stats.expired++;
         changes++;
-        if (it.boardId === TRASH) { gone++; continue; }
+        if (it.boardId === TRASH) continue;
       }
       s.referenced.push(...fileIdsOf(it));
     }
-    // 真删掉的不在名单里了，后面的往前挪了几位
-    s.at = i - gone;
+    s.after = all[i - 1].id;
     await db.saveScratch(s);
     return { ...s.stats, done: false };
   }
@@ -57,7 +59,7 @@ export async function cleanup(ctx: Ctx, now = Date.now()): Promise<CleanupStats 
   // 收尾：领了上传地址却没建成元素的文件（留一天余量，正在传的不会被误删）。删不完的明天接着删。
   // 被修剪掉的元素，文件已经跟着删了，名单里多记着也无害
   const referenced = new Set(s.referenced);
-  const orphans = (await files.list()).filter((f) => !referenced.has(f.id) && now - (fileIdTime(f.id) ?? f.modifiedAt) > DAY).slice(0, SWEEP);
+  const orphans = (await files.list()).filter((f) => !referenced.has(f.id) && s.startedAt - (fileIdTime(f.id) ?? f.modifiedAt) > DAY).slice(0, SWEEP);
   await Promise.all(orphans.map((f) => files.delete(f.id)));
   s.stats.orphanFiles += orphans.length;
   await db.dropScratch();

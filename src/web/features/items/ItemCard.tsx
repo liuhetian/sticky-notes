@@ -4,7 +4,6 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useDrag } from '@use-gesture/react';
 import clsx from 'clsx';
 import { memo, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { toast } from 'sonner';
 import { COLORS, TRASH } from '@/shared/constants';
 import { isFileLike } from '@/shared/items';
 import { EDGE } from '@/shared/layout';
@@ -138,7 +137,7 @@ export const ItemCard = memo(function ItemCard({ item, boardId, boards, actions,
 
       {item.type === 'note' && (
         <NoteContent item={item} editing={editing} setEditing={setEditing} readOnly={inTrash} patch={patch}
-          onThrow={async () => { if (await actions.move(boardId, item, TRASH)) toast('已丢入废纸篓'); }} />
+          onThrow={() => actions.remove(boardId, item)} />
       )}
       {isFileLike(item) && <FileLikeBody item={item} />}
       {item.type === 'location' && (

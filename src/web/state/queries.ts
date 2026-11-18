@@ -6,7 +6,7 @@ import { BATCH, isAlive } from '@/shared/constants';
 import type { Board, IndexEntry, Item, Reminder } from '@/shared/schema';
 import { api, serverNow, syncClock, unwrap } from '../api/client';
 import { syncStore } from './stores';
-import { isWriting, writeSeq } from './writes';
+import { isWriting, writeSeq, writesDone } from './writes';
 
 export const qk = {
   boards: ['boards'] as const,
@@ -43,9 +43,11 @@ const etags = new Map<string, Map<string, string>>();
 
 /** 同步一块白板：一块最多 50 个元素，变了的一次取完 */
 export async function syncBoard(qc: QueryClient, boardId: string): Promise<Item[]> {
-  const prev = qc.getQueryData<Item[]>(qk.items(boardId)) ?? [];
+  const cached = qc.getQueryData<Item[]>(qk.items(boardId));
+  // 本机正在写：这轮先不覆盖；这块白板还没读过（刚切过来）就等写完再读，不能拿空的当结果
+  if (isWriting()) { if (cached) return cached; await writesDone(); }
+  const prev = cached ?? [];
   const seq = writeSeq();
-  if (isWriting()) return prev; // 本机正在写，这轮先不覆盖
   const idx = await unwrap<{ items: IndexEntry[]; now: number }>(api.boards[':id'].etags.$get({ param: { id: boardId } }));
   syncClock(idx.now);
   const known = etags.get(boardId) ?? new Map<string, string>();
@@ -60,7 +62,7 @@ export async function syncBoard(qc: QueryClient, boardId: string): Promise<Item[
     const r = await unwrap<{ items: Item[] }>(api.boards[':id'].items.$get({ param: { id: boardId }, query: { ids: need.join(',') } }));
     for (const it of r.items) fetched.set(it.id, it);
   }
-  if (seq !== writeSeq() || isWriting()) return qc.getQueryData<Item[]>(qk.items(boardId)) ?? prev;
+  if (seq !== writeSeq() || isWriting()) return cached ? qc.getQueryData<Item[]>(qk.items(boardId)) ?? prev : syncBoard(qc, boardId);
   const nextEtags = new Map<string, string>();
   const next: Item[] = [];
   for (const e of idx.items) {
