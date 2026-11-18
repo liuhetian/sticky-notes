@@ -11,7 +11,7 @@ import { PEEK } from '../board/geometry';
 import type { Board, Item, PatchItem } from '@/shared/schema';
 import { countTasks } from '@/shared/todo';
 import { expiringSoon, fmtDay, isRinging, remain, rotFor } from '../../lib/format';
-import type { Actions } from '../../state/actions';
+import type { Actions, PatchOpt } from '../../state/actions';
 import { useNames } from '../../state/queries';
 import { editStore } from '../../state/stores';
 import { Icon, IconButton } from '../../ui/Icon';
@@ -60,7 +60,7 @@ export const ItemCard = memo(function ItemCard({ item, boardId, boards, actions,
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
   const [z, setZ] = useState(0);
   const draggedAt = useRef(0);
-  const patch = (p: PatchItem) => actions.patch(boardId, item, p);
+  const patch = (p: PatchItem, o?: PatchOpt) => actions.patch(boardId, item, p, o);
 
   const bind = useDrag(({ first, last, canceled, movement: [mx, my], event, cancel, tap }) => {
     if (first && (event.target as HTMLElement).closest('button, a, input, textarea, label, video, audio, .bar, .os-scrollbar')) return cancel();

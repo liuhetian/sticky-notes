@@ -241,7 +241,12 @@ export function BoardView({ board, boards, actions, upload }: {
                 {uploads.map((u) => <UploadingCard key={u.id} {...u} />)}
                 {create.draft && (
                   <DraftNote {...create.draft} ttl={create.ttl} onCancel={() => create.setDraft(null)}
-                    onSave={(text, color) => { create.createNote(text, create.draft!, color); create.setDraft(null); }} />
+                    onSave={async (text, color) => {
+                      const at = { x: create.draft!.x, y: create.draft!.y };
+                      create.setDraft(null);
+                      // 没存上：草稿带着刚写的放回原处（这时又开了一张新草稿就不盖它）
+                      if (!(await create.createNote(text, at, color))) create.setDraft((d) => d ?? { ...at, text, color });
+                    }} />
                 )}
                 {marquee.box && <div className="marquee" style={{ left: marquee.box.x, top: marquee.box.y, width: marquee.box.w, height: marquee.box.h }} />}
               </div>

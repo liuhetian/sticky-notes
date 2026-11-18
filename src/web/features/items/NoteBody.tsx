@@ -7,6 +7,7 @@ import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
 import { parseRef, refKey } from '@/shared/refs';
 import type { NoteItem, PatchItem } from '@/shared/schema';
+import type { PatchOpt } from '../../state/actions';
 import { allTasksDone, continueTask, normalizeBareTasks, toggleTaskLine } from '@/shared/todo';
 import { sharePath } from '../../api/client';
 import { useMobile } from '../../lib/hooks';
@@ -81,13 +82,17 @@ export function NoteContent({ item, editing, setEditing, readOnly, patch, onThro
   setEditing: (on: boolean) => void;
   /** 废纸篓里：只能看 */
   readOnly: boolean;
-  patch: (p: PatchItem) => void;
+  patch: (p: PatchItem, o?: PatchOpt) => void;
   onThrow: () => void;
 }) {
+  /** 上次没存上的字：编辑框带着它重新打开 */
+  const [unsaved, setUnsaved] = useState<string | null>(null);
   if (editing) {
-    return <NoteEditor initial={item.text} onDone={(text) => {
+    return <NoteEditor initial={unsaved ?? item.text} saved={item.text} onDone={(text) => {
       setEditing(false);
-      if (text !== null && text !== item.text) patch({ text, baseRev: item.rev });
+      setUnsaved(null);
+      // 卡片上先显示新的；没存上时界面退回原文，刚写的放回编辑框，字不丢
+      if (text !== null && text !== item.text) patch({ text, baseRev: item.rev }, { onFail: () => { setUnsaved(text); setEditing(true); } });
     }} />;
   }
   return (
@@ -109,11 +114,12 @@ function replaceRange(ta: HTMLTextAreaElement, from: number, to: number, insert:
   if (!ok) ta.setRangeText(insert, from, to, 'end');
 }
 
-export function NoteEditor({ initial, onDone }: { initial: string; onDone: (text: string | null) => void }) {
+/** saved 是存着的那份：和它不一样就亮「未保存」。没存上、带着刚写的字重新打开时，initial 和它不同 */
+export function NoteEditor({ initial, saved = initial, onDone }: { initial: string; saved?: string; onDone: (text: string | null) => void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const finished = useRef(false);
   /** 改过还没存：编辑框下面亮出「未保存」和保存按钮 */
-  const [dirty, setDirty] = useState(false);
+  const [dirty, setDirty] = useState(initial !== saved);
   // 手机上收起键盘就是失焦、自动保存，用不着按钮
   const mobile = useMobile();
   const finish = (text: string | null) => {
@@ -136,7 +142,7 @@ export function NoteEditor({ initial, onDone }: { initial: string; onDone: (text
     <>
     <textarea ref={ref} className="editor" defaultValue={initial}
       placeholder={'写点什么……\n支持 **粗体**、`代码`、[名称](链接)、- [ ] 待办\nCtrl+Enter 保存，Esc 取消'}
-      onInput={(e) => { autosize(); setDirty(e.currentTarget.value !== initial); }}
+      onInput={(e) => { autosize(); setDirty(e.currentTarget.value !== saved); }}
       onKeyDown={(e) => {
         const ta = e.currentTarget;
         if (e.key === 'Escape') { e.preventDefault(); finish(null); }
@@ -148,7 +154,7 @@ export function NoteEditor({ initial, onDone }: { initial: string; onDone: (text
           e.preventDefault();
           replaceRange(ta, r.from, r.to, r.insert);
           autosize();
-          setDirty(ta.value !== initial);
+          setDirty(ta.value !== saved);
         }
       }}
       // 点工具栏按钮也会先失焦；稍等一下，让按钮的点击先跑完

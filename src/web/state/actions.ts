@@ -36,6 +36,7 @@ function localItem(boardId: string, id: string, b: CreateItem): Item {
 const UNDOABLE: [keyof PatchItem, string][] = [['text', '改文字'], ['color', '改颜色'], ['name', '改名'], ['links', '连线'], ['x', '移动'], ['y', '移动']];
 type Opt = { /** 撤销操作自己不再记一笔 */ record?: boolean };
 type Quiet = Opt & { /** 不弹提示（撤销时） */ quiet?: boolean };
+export type PatchOpt = Opt & { /** 没存上时调（冲突除外，冲突弹窗里留着刚写的）：编辑框靠它把刚写的字放回去 */ onFail?: () => void };
 
 export function createActions(qc: QueryClient) {
   const setItems = (boardId: string, fn: (items: Item[]) => Item[]) =>
@@ -95,7 +96,7 @@ export function createActions(qc: QueryClient) {
     }
   }
 
-  async function patch(boardId: string, item: Item, p: PatchItem, o: Opt = {}) {
+  async function patch(boardId: string, item: Item, p: PatchItem, o: PatchOpt = {}) {
     try {
       const saved = await send(boardId, item, p);
       if ('remindAt' in p || 'remindDone' in p) qc.invalidateQueries({ queryKey: qk.reminders });
@@ -118,7 +119,10 @@ export function createActions(qc: QueryClient) {
       if (e instanceof ApiError && e.status === 409 && 'text' in p) {
         upsert(boardId, e.data.item);
         conflictStore.set({ boardId, theirs: e.data.item, mine: p.text! });
-      } else fail(e);
+      } else {
+        fail(e);
+        o.onFail?.();
+      }
       return null;
     }
   }

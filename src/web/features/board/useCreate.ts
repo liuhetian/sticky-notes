@@ -21,8 +21,8 @@ const LOCATION = sizeOf({ type: 'location' });
 export function useCreate(boardId: string, actions: Actions, place: ReturnType<typeof usePlacing>, upload: (files: File[], meta: UploadMeta) => void) {
   const ttl = ttlStore.use();
   const qc = useQueryClient();
-  /** 双击或菜单新建的便利贴：先在本地写，存的时候才真正创建 */
-  const [draft, setDraft] = useState<Pos | null>(null);
+  /** 双击或菜单新建的便利贴：先在本地写，存的时候才真正创建；没存上时带着刚写的字和颜色放回来 */
+  const [draft, setDraft] = useState<(Pos & { text?: string; color?: NoteItem['color'] }) | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const filePos = useRef<Pos | null>(null);
 
