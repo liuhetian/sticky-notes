@@ -46,7 +46,7 @@ export function createActions(qc: QueryClient) {
   const find = (boardId: string, id: string) => qc.getQueryData<Item[]>(qk.items(boardId))?.find((x) => x.id === id);
   const refresh = (boardId: string) => qc.invalidateQueries({ queryKey: qk.items(boardId) });
   const fail = (e: unknown) => toast.error(e instanceof Error ? e.message : String(e));
-  /** 删进废纸篓以后：废纸篓超出 50 个就把最早进去的真删，接着调到不超；不打扰人，失败了等每天的清理 */
+  /** 删进废纸篓以后：废纸篓超出 50 个就把最早进去的真删，接着调到不超；不弹提示，失败了等每天的清理。5xx 和网络不通已经由 apiFetch 记下上报 */
   const pruneTrash = () => drain(async () => {
     const r = await enqueue(() => unwrap<{ removed: number; remaining: number }>(api.boards[':id'].prune.$post({ param: { id: TRASH } })));
     return r.remaining > 0 && r.removed > 0;

@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { TRASH, fileKind, isAlive } from '@/shared/constants';
+import { FAULTS, fileKind, isAlive, isSystemBoard } from '@/shared/constants';
 import type { Item } from '@/shared/schema';
 import { api, authLost, serverNow, unwrap } from './api/client';
 import { Login } from './features/auth/Login';
@@ -18,7 +18,7 @@ import { useUploader } from './features/upload/useUploader';
 import { useDailyCleanup } from './state/cleanup';
 import { useActions } from './state/actions';
 import { itemsQuery, useBoards } from './state/queries';
-import { boardStore, jumpStore, meStore, spotlight } from './state/stores';
+import { boardStore, faultsStore, jumpStore, meStore, spotlight } from './state/stores';
 import { Logo } from './ui/Logo';
 
 export function App() {
@@ -50,7 +50,9 @@ function Main() {
   useDailyCleanup(!!boards);
   useReminders(boards ?? [], (r) => { boardStore.set(r.boardId); spotlight(r.itemId); }, actions.ackReminder);
 
-  const current = boards?.find((b) => b.id === boardId) ?? boards?.find((b) => b.id !== TRASH);
+  const showFaults = faultsStore.use();
+  // 记着的是故障白板、设置里又关了显示，就回到第一块
+  const current = boards?.find((b) => b.id === boardId && (b.id !== FAULTS || showFaults)) ?? boards?.find((b) => !isSystemBoard(b.id));
 
   // 跳到某块白板上的某个元素（分享链接、便利贴里的引用）：切过去，等那块白板的数据到了再高亮；只认这块白板，不去别处找
   const jump = jumpStore.use();
@@ -69,7 +71,7 @@ function Main() {
       .catch((e) => toast.error(e instanceof Error ? e.message : String(e)));
   }, [jump, boards]);
   if (!boards || !current) return <div className="splash"><Logo /></div>;
-  const inTrash = current.id === TRASH;
+  const renamable = !isSystemBoard(current.id);
 
   return (
     <div className="shell">
@@ -80,7 +82,7 @@ function Main() {
         <BoardView key={current.id} board={current} boards={boards} actions={actions} upload={upload} />
         {/* 没有顶栏：白板名字浮在画布左上角；关着自动同步时旁边有刷新按钮 */}
         <div className="title-float">
-          <h1 className="board-title" title={inTrash ? undefined : '双击改名'} onDoubleClick={() => !inTrash && setRenaming(current.id)}>{current.name}</h1>
+          <h1 className="board-title" title={renamable ? '双击改名' : undefined} onDoubleClick={() => renamable && setRenaming(current.id)}>{current.name}</h1>
           <RefreshButton boardId={current.id} />
         </div>
       </section>

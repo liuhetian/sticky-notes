@@ -1,7 +1,8 @@
-// 登录状态、提醒索引
+// 登录状态、提醒索引、失败上报
 import { Hono } from 'hono';
-import { Reminder } from '../../shared/schema';
+import { FaultReport, Reminder } from '../../shared/schema';
 import type { Env } from '../env';
+import { reportFaults } from '../services/faults';
 import { patchItem } from '../services/items';
 import { json } from './util';
 
@@ -15,4 +16,6 @@ export const system = new Hono<Env>()
     if (!it) { await ctx.db.dropReminder(r); return c.json({ ok: true as const }); }
     await patchItem(ctx, it, { remindDone: true });
     return c.json({ ok: true as const });
-  });
+  })
+  // 页面攒下的接口失败：在故障白板上建一张便利贴
+  .post('/faults', json(FaultReport), async (c) => c.json(await reportFaults(c.get('ctx'), c.req.valid('json').faults), 201));

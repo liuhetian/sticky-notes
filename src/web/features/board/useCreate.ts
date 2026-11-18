@@ -3,7 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type ChangeEvent } from 'react';
 import { toast } from 'sonner';
-import { BOARD_FULL, BOARD_MAX, TRASH } from '@/shared/constants';
+import { BOARD_FULL, BOARD_MAX, FAULTS, TRASH } from '@/shared/constants';
 import { parseCoords, round6 } from '@/shared/geo';
 import { sizeOf, type Size } from '@/shared/layout';
 import type { Item, NoteItem } from '@/shared/schema';
@@ -33,11 +33,12 @@ export function useCreate(boardId: string, actions: Actions, place: ReturnType<t
   const uploadAt = (files: File[], pos: Pos) => { if (files.length && !blocked(files.length)) upload(files, { boardId, ...pos, ttl }); };
 
   /**
-   * 废纸篓里不能新建（菜单和加号在废纸篓里本来就没有，要拦的是双击、粘贴和拖放）。
+   * 废纸篓、故障白板里不能新建（废纸篓里菜单和加号本来就没有，要拦的是双击、粘贴和拖放）。
    * 白板放不下 n 个了也先在本机拦一下，免得文件白传一趟；准不准以服务端为准
    */
   const blocked = (n = 1) => {
     if (boardId === TRASH) { toast('废纸篓里不能直接贴，先切到别的白板'); return true; }
+    if (boardId === FAULTS) { toast('故障白板只放页面自动上报的失败记录，先切到别的白板'); return true; }
     if ((qc.getQueryData<Item[]>(qk.items(boardId))?.length ?? 0) + n > BOARD_MAX) { toast.error(BOARD_FULL); return true; }
     return false;
   };

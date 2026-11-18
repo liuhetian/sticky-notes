@@ -10,7 +10,7 @@ describe('wiki 的 Markdown /wiki/<页>.md', () => {
     expect(status).toBe(200);
     expect(res.headers.get('content-type')).toBe('text/markdown; charset=utf-8');
     expect(res.headers.get('cache-control')).toContain('no-store');
-    expect(text).toContain('\n白板：共用、牛牛、香蕉、废纸篓\n');
+    expect(text).toContain('\n白板：共用、牛牛、香蕉、故障、废纸篓\n');
     // AI 的密码也能读
     expect((await t.wiki('ai-api.md', AS('ai', 'ai-test'))).text).toContain('白板：共用、');
   });

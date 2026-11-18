@@ -1,5 +1,11 @@
 // 不依赖 zod 的常量和小工具：前端只从这里取值，免得把 zod 打进页面
 export const TRASH = 'trash';
+/** 系统白板「故障」：页面自动上报的接口失败记录，一次上报一张便利贴（docs/requirements.md「失败上报」） */
+export const FAULTS = 'faults';
+/** 废纸篓和故障白板：不能删、不能改名、不能直接往上贴 */
+export const isSystemBoard = (id: string) => id === TRASH || id === FAULTS;
+/** 本机最多攒几条还没报上去的失败记录 */
+export const FAULT_QUEUE = 50;
 export const MAX_FILE = 100 * 1024 * 1024;
 export const MAX_TEXT = 50_000;
 export const DAY = 86400_000;

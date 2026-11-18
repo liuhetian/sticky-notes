@@ -1,9 +1,9 @@
 // 左侧白板标签：可以收起成一条窄栏（只剩图标），状态记在本机；左下角是设置、说明、退出
 import clsx from 'clsx';
-import { TRASH } from '@/shared/constants';
+import { FAULTS, TRASH, isSystemBoard } from '@/shared/constants';
 import type { Board } from '@/shared/schema';
 import type { Actions } from '../../state/actions';
-import { guideStore, sidebarCollapsedStore } from '../../state/stores';
+import { faultsStore, guideStore, sidebarCollapsedStore } from '../../state/stores';
 import { Icon, IconButton } from '../../ui/Icon';
 import { Logo } from '../../ui/Logo';
 import { BoardIcon } from './BoardIcons';
@@ -20,7 +20,8 @@ type Props = {
 };
 
 export function Sidebar({ boards, current, onSwitch, actions, renaming, setRenaming, onLogout }: Props) {
-  const regular = boards.filter((b) => b.id !== TRASH);
+  const regular = boards.filter((b) => !isSystemBoard(b.id));
+  const faults = faultsStore.use() ? boards.find((b) => b.id === FAULTS) : undefined;
   const collapsed = sidebarCollapsedStore.use();
   const toggle = () => sidebarCollapsedStore.set(!collapsed);
   return (
@@ -65,6 +66,11 @@ export function Sidebar({ boards, current, onSwitch, actions, renaming, setRenam
           setRenaming(b.id);
         }
       }}><Icon name="plus" /><span>新建白板</span></button>
+      {faults && (
+        <div className={clsx('tab', current === FAULTS && 'on')} title="页面自动上报的接口失败" onClick={() => onSwitch(FAULTS)}>
+          <BoardIcon id={faults.id} name={faults.name} /><span className="tab-name">{faults.name}</span>
+        </div>
+      )}
       <div className={clsx('tab trash-tab', current === TRASH && 'on')} title="废纸篓" onClick={() => onSwitch(TRASH)}>
         <Icon name="trash" /><span className="tab-name">废纸篓</span>
       </div>

@@ -1,6 +1,6 @@
 // 文档（PDF、Word、Excel、PPT）的封面：第一页的图由 COS 现转，这里只管取回来和记住页数
 import type { FileRef } from '@/shared/schema';
-import { fileUrl } from '../../api/client';
+import { apiFetch, fileUrl } from '../../api/client';
 
 type FileKey = Pick<FileRef, 'id' | 'name'>;
 export type Cover = { url: string; pages: number | null };
@@ -18,7 +18,7 @@ export function docCover(file: FileKey): Promise<Cover> {
   if (!p) {
     p = (async () => {
       try {
-        const res = await fetch(coverUrl(file));
+        const res = await apiFetch(coverUrl(file));
         if (!res.ok) throw new Error(String(res.status));
         const pages = Number(res.headers.get('x-total-page')) || null;
         return { url: URL.createObjectURL(await res.blob()), pages };

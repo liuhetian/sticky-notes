@@ -1,6 +1,6 @@
 import { serializeSigned } from 'hono/utils/cookie';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BATCH, BOARD_FULL, BOARD_MAX, DAY, MAX_FILE, TRASH_KEEP } from '../src/shared/constants';
+import { BATCH, BOARD_FULL, BOARD_MAX, DAY, FAULTS, MAX_FILE, TRASH_KEEP } from '../src/shared/constants';
 import { newFileId, newId } from '../src/shared/ids';
 import { AS, ENV, note, setup } from './helpers';
 
@@ -40,15 +40,15 @@ describe('鉴权', () => {
 });
 
 describe('白板', () => {
-  it('第一次读：共用、牛牛、香蕉 + 最后的废纸篓', async () => {
+  it('第一次读：共用、牛牛、香蕉 + 最后的故障白板、废纸篓', async () => {
     const { data } = await t.call('GET', '/boards');
-    expect(data.boards.map((b: any) => b.name)).toEqual(['共用', '牛牛', '香蕉', '废纸篓']);
+    expect(data.boards.map((b: any) => b.name)).toEqual(['共用', '牛牛', '香蕉', '故障', '废纸篓']);
     expect(data.boards.at(-1).id).toBe('trash');
   });
-  it('新建插在废纸篓前；废纸篓不能改名不能删', async () => {
+  it('新建插在故障白板前；废纸篓不能改名不能删', async () => {
     await t.call('POST', '/boards', { name: '新的' });
     const names = (await t.call('GET', '/boards')).data.boards.map((b: any) => b.name);
-    expect(names.slice(-2)).toEqual(['新的', '废纸篓']);
+    expect(names.slice(-3)).toEqual(['新的', '故障', '废纸篓']);
     expect((await t.call('PATCH', '/boards/trash', { name: 'x' })).status).toBe(400);
     expect((await t.call('DELETE', '/boards/trash')).status).toBe(400);
   });
@@ -256,6 +256,55 @@ describe('废纸篓', () => {
     expect(left.size).toBe(BOARD_MAX);
     expect(items.slice(0, 3).some((it) => left.has(it.id))).toBe(false);
     expect((await t.call('POST', `/boards/${a}/prune`)).status).toBe(400);
+  });
+});
+
+describe('故障白板', () => {
+  const fault = (over: Record<string, unknown> = {}) => ({ at: Date.UTC(2026, 10, 18, 13, 3, 5), method: 'GET', path: '/api/boards/abc/etags', status: 545, ms: 412, ...over });
+
+  it('老数据里没有就补上，排在废纸篓前，只补一次', async () => {
+    await t.blob.setJSON('boards.json', { boards: [{ id: 'a1', name: '共用', createdAt: 1 }, { id: 'trash', name: '废纸篓', createdAt: 1 }] });
+    expect((await t.call('GET', '/boards')).data.boards.map((b: any) => b.id)).toEqual(['a1', FAULTS, 'trash']);
+    expect((await t.blob.get('boards.json')).boards).toHaveLength(3);
+    expect((await t.call('GET', '/boards')).data.boards).toHaveLength(3);
+  });
+
+  it('不能改名、不能删、不能往上贴、不能挪进去；删掉的能从废纸篓放回来', async () => {
+    const [a] = await t.boardIds();
+    expect((await t.call('PATCH', `/boards/${FAULTS}`, { name: 'x' })).status).toBe(400);
+    expect((await t.call('DELETE', `/boards/${FAULTS}`)).status).toBe(400);
+    expect((await t.call('POST', `/boards/${FAULTS}/items`, note())).status).toBe(400);
+    expect((await t.call('POST', `/ai/boards/${encodeURIComponent('故障')}/items`, note(), AS('ai', 'ai-test'))).status).toBe(400);
+    const mine = (await t.call('POST', `/boards/${a}/items`, note())).data;
+    expect((await t.call('POST', `/boards/${a}/items/${mine.id}/move`, { to: '故障' })).status).toBe(400);
+    const f = (await t.call('POST', '/faults', { faults: [fault()] })).data;
+    expect((await t.call('DELETE', `/boards/${FAULTS}/items/${f.id}`)).data.item).toMatchObject({ boardId: 'trash', from: FAULTS });
+    expect((await t.call('POST', `/boards/trash/items/${f.id}/move`, {})).data.to).toBe(FAULTS);
+  });
+
+  it('上报：建一张粉色便利贴，一行一次失败，北京时间，记上报的人，不到期；格式不对 400', async () => {
+    const r = await t.call('POST', '/faults', { faults: [fault(), fault({ method: 'POST', path: '/api/faults', status: 0, ms: 3 })] }, AS('banana'));
+    expect(r.status).toBe(201);
+    expect(r.data).toMatchObject({ boardId: FAULTS, type: 'note', color: 'pink', by: 'banana', expiresAt: null });
+    expect(r.data.text).toBe('接口失败 2 次\n11-18 21:03:05 GET /api/boards/abc/etags 545 412 ms\n11-18 21:03:05 POST /api/faults 网络不通 3 ms');
+    expect(await t.itemsOf(FAULTS)).toHaveLength(1);
+    expect((await t.call('POST', '/faults', { faults: [] })).status).toBe(400);
+    expect((await t.call('POST', '/faults', { faults: [fault()] }, {})).status).toBe(401);
+  });
+
+  it('满 50 张时删掉最早的，不进废纸篓', async () => {
+    const made: any[] = [];
+    for (let i = 0; i < BOARD_MAX; i++) made.push((await t.call('POST', '/faults', { faults: [fault({ ms: i })] })).data);
+    for (const [i, it] of made.entries()) {
+      const key = `items/${FAULTS}/${it.id}.json`;
+      await t.blob.setJSON(key, { ...(await t.blob.get(key)), createdAt: 1000 + i });
+    }
+    const last = (await t.call('POST', '/faults', { faults: [fault()] })).data;
+    const left = new Set(((await t.call('GET', `/boards/${FAULTS}/etags`)).data.items as { id: string }[]).map((e) => e.id));
+    expect(left.size).toBe(BOARD_MAX);
+    expect(left.has(made[0].id)).toBe(false);
+    expect(left.has(last.id)).toBe(true);
+    expect(await t.itemsOf('trash')).toHaveLength(0);
   });
 });
 
@@ -552,7 +601,7 @@ describe('给 AI 的接口', () => {
     expect(r).toMatchObject({ board: { id: b, name: '共用' }, count: 3, max: BOARD_MAX });
     expect(r.items.map((i: any) => i.id)).toEqual([x.id, z.id, y.id]);
     expect((await ai('GET', `/boards/${b}?todo=1`)).data.items.map((i: any) => i.id)).toEqual([x.id]);
-    expect((await ai('GET', '/boards/没有这块')).data.error).toContain('现有的：共用、牛牛、香蕉、废纸篓');
+    expect((await ai('GET', '/boards/没有这块')).data.error).toContain('现有的：共用、牛牛、香蕉、故障、废纸篓');
     expect((await ai('GET', '/boards/废纸篓')).data.board.id).toBe('trash');
   });
   it('新建默认白色、自动挑位置；改文字；删除进废纸篓、放回；不能彻底删除', async () => {

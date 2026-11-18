@@ -3,7 +3,7 @@
 //   items/<boardId>/<itemId>.json             每个元素一个对象，改不同元素的人互不覆盖
 //   reminders/<remindAt>-<boardId>-<itemId>   提醒索引，内容全在 key 里，list 一次就够
 // 这一层只管读写，不懂业务（废纸篓、到期、文件都在 services 里）。读一律强一致：在 edge.ts 建 store 时设好
-import { TRASH } from '../../shared/constants';
+import { FAULTS, TRASH } from '../../shared/constants';
 import { newBoardId } from '../../shared/ids';
 import type { Board, IndexEntry, Item, Reminder } from '../../shared/schema';
 import type { BlobLike } from '../storage/blob';
@@ -21,20 +21,22 @@ export class Db {
   // ── 白板 ──
   async boards(): Promise<Board[]> {
     const doc: { boards: Board[] } | null = await this.blob.get('boards.json', { type: 'json' });
-    if (doc) return doc.boards;
+    // 故障白板是后加的：已有的白板列表里没有就补上，只补这一次
+    if (doc?.boards.some((b) => b.id === FAULTS)) return doc.boards;
     const now = Date.now();
-    const boards: Board[] = [
+    const boards: Board[] = doc?.boards ?? [
       ...SEED.map((name, i) => ({ id: newBoardId(), name, createdAt: now + i })),
       { id: TRASH, name: '废纸篓', createdAt: now },
     ];
-    await this.saveBoards(boards);
-    return boards;
+    return this.saveBoards([...boards, { id: FAULTS, name: '故障', createdAt: now }]);
   }
 
-  /** 废纸篓永远排最后 */
-  async saveBoards(boards: Board[]) {
-    const sorted = [...boards.filter((b) => b.id !== TRASH), ...boards.filter((b) => b.id === TRASH)];
+  /** 普通白板在前，故障白板、废纸篓排最后；返回排好的 */
+  async saveBoards(boards: Board[]): Promise<Board[]> {
+    const last = [FAULTS, TRASH];
+    const sorted = [...boards.filter((b) => !last.includes(b.id)), ...last.flatMap((id) => boards.filter((b) => b.id === id))];
     await this.blob.setJSON('boards.json', { boards: sorted });
+    return sorted;
   }
 
   /** 按 id 找，找不到再按名字找（快捷指令和 AI 写的是名字） */

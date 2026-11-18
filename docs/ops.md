@@ -11,12 +11,12 @@ description: "牛牛便利贴的部署与日常维护：各部分部署在哪、
 | 部分 | 在哪 | 备注 |
 |---|---|---|
 | 页面、文档站（静态文件） | EdgeOne Makers 项目 `clip`，中国大陆加速 | 平台上不构建，传上去的是本地构建好的 `build/` |
-| 接口、`/wiki/<页>.md`（边缘函数） | 同一个项目 | 一个函数包放在 `/api/`、`/wiki/` 两个入口 |
+| 接口、`/wiki/<页>.md`（边缘函数） | 同一个项目 | 一个函数包，一个入口，放在 `edge-functions/` 最顶层 |
 | 元素数据 | EdgeOne Blob，存储名 `clipboard` | 对象布局写在 `src/server/repo/db.ts:1` |
 | 文件（图片、附件、压缩包、地图缩略图） | 自己的 COS 桶，成都，私有 | 桶名在 `.env` 的 `CLIP_COS_BUCKET`；对象名 `file/<文件 id>` |
 | 文档预览 | COS 数据万象，按次计费 | 桶的跨域规则要暴露 `X-Total-Page`，`npm run setup` 配 |
 | 域名 `clip.liuhetian.life` | DNS 在同一个腾讯云账号的 DNSPod，证书是 EdgeOne 免费证书 | 都由 `npm run setup` 配 |
-| 定时任务 | `edgeone.json:23`：每天 04:00（Asia/Shanghai）`POST /api/cron/cleanup` | 只推一批清理，剩下的靠页面打开时接着调 |
+| 定时任务 | `edgeone.json:22`：每天 04:00（Asia/Shanghai）`POST /api/cron/cleanup` | 只推一批清理，剩下的靠页面打开时接着调 |
 | 构建文档站的 Python 环境 | 兄弟目录 `../test-wiki`（或 `WIKI_ROOT` 指的地方） | 要在里面 `uv sync` 过；没有它 `npm test` 和 `npm run build` 都过不了 |
 
 ## 密钥放在哪
@@ -80,19 +80,20 @@ npm run smoke     # 生效要几十秒，之后跑
 
 ## 报错对应什么
 
-没有告警，下面是接口和页面上会看到的现象。
+没有告警。页面调接口遇到的 5xx 和网络不通会自动报到「故障」白板，在设置里打开「显示故障白板」就能看到；AI 读白板「故障」也行。下面是接口和页面上会看到的现象。
 
 | 现象 | 原因 | 怎么办 |
 |---|---|---|
 | 接口回 500「站点配置缺失」 | 项目环境变量缺 `SITE_PASSWORD`、`COOKIE_SECRET` 或 `NAMES`（`src/server/app.ts:33`） | `npm run setup` |
-| 接口回 500「服务出错：COS 配置缺失」 | 项目环境变量缺 `COS_*`（`src/server/edge.ts:13`） | `npm run setup` |
-| 任何接口偶尔回 545，响应体是 `Error return from script`；页面上是「请求失败（545）」，或者打开页面被要求重新登录 | 函数冷启动超时被平台掐掉，刚部署完的一阵最多 | 重试。经常出现先看函数包是不是变大了（`npm run build:edge` 打印大小），见[开发 · 平台的坑](dev.md#platform) |
-| 读白板偶尔回 504 | 存储个别请求变慢 | 重试；页面下一次同步自己会重试 |
+| 接口回 500「服务出错：COS 配置缺失」 | 项目环境变量缺 `COS_*`（`src/server/edge.ts:15`） | `npm run setup` |
+| 任何接口偶尔回 545，响应体是 `Error return from script`；页面上是「请求失败（545）」，或者打开页面被要求重新登录 | 函数冷启动超时被平台掐掉 | 看故障白板上 545 多不多。多了先看函数包是不是变大了（`npm run build:edge` 打印大小和最大的几项，超过 350 KB 构建就失败），见[开发 · 平台的坑](dev.md#platform) |
+| 读白板偶尔回 504 | 存储个别请求变慢 | 看故障白板上是不是只落在读白板的接口上；页面下一次同步会再读 |
 | 新建、挪动回 409「这块白板满了」 | 白板到了 50 个 | 清理或换一块；这是[需求](requirements.md)定的上限 |
 | `/wiki/<页>.md` 回 404「没有这页文档」 | 这页没加进函数包 | 见[开发 · 改文档](dev.md#wiki) |
 | 文档页样式全乱 | 访问的是不带斜杠的 `/wiki/x`，又缺 301 | 同上 |
 | 文档页上的实时数据显示「加载失败」 | 没登录；`.md` 是没带 `X-Password` | 正常行为 |
 | 所有人突然要重新登录 | 共用密码改了，或 `COOKIE_SECRET` 换了 | 正常行为 |
+| 故障白板上一直在长新便利贴 | 某个接口在持续出错，便利贴上一行一次，写着时间、接口、状态码 | 按状态码对上面几行；故障白板满 50 张会自己删最早的 |
 | 到期的东西还留在白板上、废纸篓超过 50 个 | 清理是分批的，还没轮到 | 打开页面会接着清；也可以反复 `POST /api/cron/cleanup` 到返回 `done: true`，这个接口不用登录（`src/server/routes/auth.ts:25`） |
 
 ## 备份和清库

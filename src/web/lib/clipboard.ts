@@ -1,6 +1,6 @@
 // 复制文字、复制图片、触发下载
 import { toast } from 'sonner';
-import { downloadUrl } from '../api/client';
+import { apiFetch, downloadUrl } from '../api/client';
 
 export async function copyText(text: string, done = '已复制') {
   try {
@@ -14,7 +14,7 @@ export async function copyText(text: string, done = '已复制') {
 /** src 要是本站能读内容的地址（rawUrl 或 blob:）；剪贴板只收 PNG，别的格式先转一下 */
 export async function copyImage(src: Promise<string>) {
   const png = (async () => {
-    const blob = await (await fetch(await src)).blob();
+    const blob = await (await apiFetch(await src)).blob();
     if (blob.type === 'image/png') return blob;
     const bmp = await createImageBitmap(blob);
     const c = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });

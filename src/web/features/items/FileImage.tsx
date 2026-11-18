@@ -1,7 +1,7 @@
 // 显示上传的图片。iPhone 照片是 HEIC：Safari 能直接显示，其他浏览器显示失败时按需加载 heic2any 转成 JPEG
 import { useState, type ImgHTMLAttributes } from 'react';
 import type { FileRef } from '@/shared/schema';
-import { fileUrl, rawUrl } from '../../api/client';
+import { apiFetch, fileUrl, rawUrl } from '../../api/client';
 
 type FileKey = Pick<FileRef, 'id' | 'name'>;
 const converted = new Map<string, Promise<string>>();
@@ -17,7 +17,7 @@ function convertHeic(file: FileKey) {
   if (!p) {
     p = (async () => {
       const { default: heic2any } = await import('heic2any');
-      const blob = await (await fetch(rawUrl(file))).blob();
+      const blob = await (await apiFetch(rawUrl(file))).blob();
       const out = await heic2any({ blob, toType: 'image/jpeg', quality: 0.85 });
       return URL.createObjectURL(Array.isArray(out) ? out[0] : out);
     })();

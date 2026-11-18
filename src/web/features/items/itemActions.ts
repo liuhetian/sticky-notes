@@ -1,7 +1,7 @@
 // 一张卡片能做的事：右键菜单和卡片工具条（手机上只有它）都从这里取，两边不会对不上。
 // 以后加新类型，在 kindActions 里加一段这种类型的专属操作
 import { toast } from 'sonner';
-import { TRASH, previewKind } from '@/shared/constants';
+import { TRASH, isSystemBoard, previewKind } from '@/shared/constants';
 import { fmtCoords } from '@/shared/geo';
 import type { Board, Item } from '@/shared/schema';
 import { shareUrl } from '../../api/client';
@@ -74,7 +74,7 @@ export const shareAction = (item: Item, mobile: boolean): ItemAction =>
   ({ key: 'share', icon: 'link', label: '复制分享链接', run: () => shareLink(shareUrl(item.boardId, item.id), mobile) });
 
 /** 能移过去的白板：别的普通白板 */
-export const moveTargets = (boards: Board[], boardId: string) => boards.filter((b) => b.id !== boardId && b.id !== TRASH);
+export const moveTargets = (boards: Board[], boardId: string) => boards.filter((b) => b.id !== boardId && !isSystemBoard(b.id));
 export async function moveToBoard(actions: Actions, boardId: string, item: Item, to: Board) {
   if (await actions.move(boardId, item, to.id)) toast(`已移到「${to.name}」`);
 }

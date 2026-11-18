@@ -3,7 +3,7 @@
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import clsx from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { TRASH } from '@/shared/constants';
+import { FAULTS, TRASH } from '@/shared/constants';
 import { EDGE, NEW_NOTE, clampPos } from '@/shared/layout';
 import type { Board } from '@/shared/schema';
 import { isTyping, useEvent, useMobile, useTick } from '../../lib/hooks';
@@ -279,10 +279,11 @@ export function BoardView({ board, boards, actions, upload }: {
       )}
       {!isError && !isPending && !items.length && !uploads.length && !create.draft && (
         <div className="empty">
-          <div className="empty-big">{inTrash ? '废纸篓是空的' : '粘贴到这里'}</div>
+          <div className="empty-big">{inTrash ? '废纸篓是空的' : board.id === FAULTS ? '没有失败记录' : '粘贴到这里'}</div>
           <div className="empty-sub">
             {inTrash
               ? '删除的和到期的内容会先到这里，留 30 天，期间可以放回去'
+              : board.id === FAULTS ? '页面调接口失败（5xx、网络不通）会记下来，下次请求成功时报到这里，一次一张'
               : mobile ? '点右下角的 + 写便利贴或传文件；iPhone 还可以从系统分享菜单直接发过来' : '右键或底部的 + 新建；也可以直接粘贴、把文件拖进来'}
           </div>
         </div>

@@ -1,7 +1,7 @@
 // 元素的业务规则：新建、修改、删除（进废纸篓）、到期、换白板、彻底删除；白板上限、废纸篓修剪。
 // 网页、快捷指令、AI 三个入口都调这里，路由只管取参数和回状态码
 import { HTTPException } from 'hono/http-exception';
-import { BATCH, BOARD_FULL, BOARD_MAX, DEFAULT_TTL, TRASH, TRASH_KEEP, expiryFrom, isAlive } from '../../shared/constants';
+import { BATCH, BOARD_FULL, BOARD_MAX, DEFAULT_TTL, FAULTS, TRASH, TRASH_KEEP, expiryFrom, isAlive } from '../../shared/constants';
 import { newId } from '../../shared/ids';
 import { isFileLike, itemBase, mergePatch } from '../../shared/items';
 import { sizeOf, type Pos, type Size } from '../../shared/layout';
@@ -24,10 +24,11 @@ export async function boardNamed(ctx: Ctx, idOrName: string): Promise<Board> {
   throw new HTTPException(404, { message: `没有「${idOrName}」这块白板，现有的：${names}` });
 }
 
-/** 能往上放新元素的白板：不存在的、废纸篓都不行 */
+/** 能往上放新元素的白板：不存在的、废纸篓、故障白板都不行 */
 export async function boardForNew(ctx: Ctx, idOrName: string): Promise<Board> {
   const board = await boardNamed(ctx, idOrName);
   if (board.id === TRASH) throw new HTTPException(400, { message: '废纸篓里不能直接贴东西，换一块白板' });
+  if (board.id === FAULTS) throw new HTTPException(400, { message: '故障白板只放页面自动上报的失败记录，换一块白板' });
   return board;
 }
 
@@ -169,8 +170,10 @@ export async function moveTo(ctx: Ctx, it: Item, to: string, opts: { ttl?: numbe
 export async function moveItem(ctx: Ctx, fromId: string, itemId: string, body: MoveItem): Promise<{ item: Item; to: string }> {
   const it = await itemOr404(ctx, fromId, itemId);
   let to: string;
-  if (body.to) to = (await boardNamed(ctx, body.to)).id;
-  else if (fromId === TRASH) {
+  if (body.to) {
+    to = (await boardNamed(ctx, body.to)).id;
+    if (to === FAULTS) throw new HTTPException(400, { message: '故障白板只放页面自动上报的失败记录，不能挪进去' });
+  } else if (fromId === TRASH) {
     const boards = await ctx.db.boards();
     to = boards.some((b) => b.id === it.from) ? it.from! : boards[0].id;
   } else throw new HTTPException(400, { message: '要说明挪到哪块白板（to）' });

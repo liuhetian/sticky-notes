@@ -95,10 +95,19 @@ check('知道了出索引', !(await call('GET', '/reminders')).data.reminders.so
 // 废纸篓：删除是挪进去，留 30 天；放回原处
 const del = (await call('DELETE', `/boards/${share}/items/${id}`)).data;
 check('删除进废纸篓', del.item?.boardId === 'trash' && del.item.from === share && del.item.expiresAt > Date.now() + 29 * 86400_000);
-check('AI 读得到废纸篓', (await call('GET', '/ai/boards/trash')).data.items?.some((x: any) => x.id === id));
+const aiTrash = await call('GET', '/ai/boards/trash');
+check('AI 读得到废纸篓', aiTrash.data.items?.some((x: any) => x.id === id), `${aiTrash.status} ${aiTrash.data?.error ?? `${aiTrash.data?.items?.length} 项`}`);
 const back = (await call('POST', `/boards/trash/items/${id}/move`, { expiresAt: note.expiresAt })).data;
 check('放回原处、恢复到期时间', back.to === share && back.item.expiresAt === note.expiresAt);
 check('废纸篓不能直接贴', (await call('POST', '/boards/trash/items', { type: 'note', text: 'x', x: 1, y: 1 })).status === 400);
+// 失败上报：在故障白板上建一张便利贴；测完删掉（进废纸篓，再彻底删）
+const fr = await call('POST', '/faults', { faults: [{ at: Date.now(), method: 'GET', path: '/api/smoke', status: 599, ms: 1 }] });
+check('失败上报建在故障白板上', fr.status === 201 && fr.data.boardId === 'faults' && fr.data.text.includes('GET /api/smoke 599 1 ms'), String(fr.status));
+check('故障白板不能直接贴', (await call('POST', '/boards/faults/items', { type: 'note', text: 'x', x: 1, y: 1 })).status === 400);
+if (fr.data?.id) {
+  await call('DELETE', `/boards/faults/items/${fr.data.id}`);
+  await call('DELETE', `/boards/trash/items/${fr.data.id}`);
+}
 
 // 上传：文件直接进 COS
 const up = (await call('POST', '/uploads', { size: PNG.length })).data;

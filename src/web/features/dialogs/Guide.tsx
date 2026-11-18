@@ -1,6 +1,6 @@
 // i 按钮里的说明：做成常见问题，一条一个折叠块，点标题才展开。
 // 快捷指令只写它做什么和接口约定：家里已经有人搭好，其他人靠 iCloud 链接直接添加，不用照着一步步搭带签名的 .shortcut 只能在 Mac 上签，这里写清楚让一个人搭一次，再用 iCloud 链接分享给其他人
-import { TRASH } from '@/shared/constants';
+import { isSystemBoard } from '@/shared/constants';
 import type { Board } from '@/shared/schema';
 import { guideStore } from '../../state/stores';
 import type { ReactNode } from 'react';
@@ -19,7 +19,7 @@ function Q({ title, children }: { title: string; children: ReactNode }) {
 export function Guide({ boards }: { boards: Board[] }) {
   const open = guideStore.use();
   const origin = location.origin;
-  const names = boards.filter((b) => b.id !== TRASH).map((b) => b.name);
+  const names = boards.filter((b) => !isSystemBoard(b.id)).map((b) => b.name);
   const code = (s: string) => <code>{s}</code>;
   const v = (s: string) => <span className="var">{s}</span>;
   return (

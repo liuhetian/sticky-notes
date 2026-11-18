@@ -1,6 +1,8 @@
-// EdgeOne Makers 边缘函数入口：scripts/build-edge.ts 把它打成一个包，放两个入口：
-// edge-functions/api/[[default]].js 接 /api/*，edge-functions/wiki/[[default]].js 接 /wiki/ 下没有静态文件的路径（.md）
+// EdgeOne Makers 边缘函数入口：scripts/build-edge.ts 把它打成一个包，只放一个入口 edge-functions/[[default]].js，
+// 接住所有没对上静态文件的路径，这里按路径分：/api/* 给接口，/wiki/ 下的（页面有静态文件，平台直接给，落到这里的是 .md）给文档，
+// 其余是前端路由（分享链接 /share/...），回首页
 import { getStore, type StoreOptions } from '@edgeone/pages-blob';
+import indexHtml from '../../build/dist/index.html?raw';
 import { createApp } from './app';
 import { Db } from './repo/db';
 import { CosFiles } from './storage/files';
@@ -22,9 +24,18 @@ const app = createApp((c) => {
 });
 const wiki = createWiki(app);
 
+/** 前端路由回首页：函数读不到本站的静态文件，首页是构建时打进包里的（和静态的 index.html 同一次构建） */
+function spa(req: Request) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return new Response('Not Found', { status: 404 });
+  return new Response(req.method === 'HEAD' ? null : indexHtml, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' } });
+}
+
 export function onRequest(context: MakersContext) {
   // 平台没给 waitUntil 时，后台任务照样会跑，只是不保证跑完
   const waitUntil = context.waitUntil?.bind(context) ?? (() => {});
-  const target = new URL(context.request.url).pathname.startsWith('/wiki/') ? wiki : app;
-  return target.fetch(context.request, context.env, { waitUntil, passThroughOnException() {}, props: {} });
+  const exec = { waitUntil, passThroughOnException() {}, props: {} };
+  const { pathname } = new URL(context.request.url);
+  if (pathname.startsWith('/api/')) return app.fetch(context.request, context.env, exec);
+  if (pathname.startsWith('/wiki/')) return wiki.fetch(context.request, context.env, exec);
+  return spa(context.request);
 }

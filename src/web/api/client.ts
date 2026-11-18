@@ -1,9 +1,67 @@
-// 带类型的 API 客户端：路径、参数、请求体都由 src/server/app.ts 的路由推导
+// 带类型的 API 客户端：路径、参数、请求体都由 src/server/app.ts 的路由推导。
+// 所有接口调用都过 apiFetch：5xx 和网络不通记在本机，下一次有请求成功时报到故障白板（docs/requirements.md「失败上报」）。
+// 它在 react-query 的自动重试下面，重试救回来的那次失败也记得到
 import { hc } from 'hono/client';
 import type { AppType } from '@/server/app';
-import type { FileRef } from '@/shared/schema';
+import { FAULT_QUEUE } from '@/shared/constants';
+import type { Fault, FileRef } from '@/shared/schema';
 
-export const api = hc<AppType>('/').api;
+const FAULTS_KEY = 'clip.faults';
+/** 存坏了（被手动改过）就从头记：这里抛错会让所有接口调用跟着失败 */
+const readFaults = (): Fault[] => {
+  try { return JSON.parse(localStorage.getItem(FAULTS_KEY) ?? '[]'); } catch (e) { console.error('[faults] 本机记录坏了，从头记', e); return []; }
+};
+const writeFaults = (faults: Fault[]) => localStorage.setItem(FAULTS_KEY, JSON.stringify(faults.slice(-FAULT_QUEUE)));
+/** 报上去的从本机删掉；上报途中新记的留着 */
+const dropReported = (batch: Fault[]) => {
+  const sent = new Set(batch.map((f) => JSON.stringify(f)));
+  writeFaults(readFaults().filter((f) => !sent.has(JSON.stringify(f))));
+};
+
+let reporting = false;
+let nextReport = 0;
+/** 有攒着的就报；同时只报一份，报不上去过一分钟再说 */
+async function report() {
+  if (reporting || Date.now() < nextReport) return;
+  const batch = readFaults();
+  if (!batch.length) return;
+  reporting = true;
+  try {
+    const res = await api.faults.$post({ json: { faults: batch } });
+    if (res.ok) dropReported(batch);
+    else if (res.status === 400) {
+      // 格式不对，再报多少次都一样：丢掉这批，留个记录
+      console.error('[faults] 上报被拒，丢掉这批', await res.text(), batch);
+      dropReported(batch);
+    } else nextReport = Date.now() + 60_000;
+  } catch {
+    nextReport = Date.now() + 60_000;
+  } finally {
+    reporting = false;
+  }
+}
+
+/** 调本站接口都用它（不经 api 的直接 fetch 也一样），只记本站 /api/ 下的 */
+export const apiFetch: typeof fetch = async (input, init) => {
+  const url = new URL(input instanceof Request ? input.url : String(input), location.href);
+  const ours = url.origin === location.origin && url.pathname.startsWith('/api/');
+  const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+  const t0 = performance.now();
+  const record = (status: number) =>
+    writeFaults([...readFaults(), { at: serverNow(), method, path: url.pathname, status, ms: Math.round(performance.now() - t0) }]);
+  try {
+    const res = await fetch(input, init);
+    if (ours && res.status >= 500) record(res.status);
+    else if (ours && res.ok && url.pathname !== '/api/faults') void report();
+    return res;
+  } catch (e) {
+    // 页面自己取消的（切走白板时 react-query 会取消请求）不算失败
+    if (ours && !(e instanceof DOMException && e.name === 'AbortError')) record(0);
+    throw e;
+  }
+};
+
+export const api = hc<AppType>('/', { fetch: apiFetch }).api;
 
 export class ApiError extends Error {
   constructor(message: string, public status: number, public data: any) {

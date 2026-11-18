@@ -59,6 +59,8 @@ export const colorStore = persisted<NoteItem['color']>('clip.color', 'yellow');
 /** 自动同步：开着才定时去拉别的设备的改动；关着只在打开页面、切回页面时拉一次（省边缘函数的用量） */
 export const syncStore = persisted<boolean>('clip.sync.on', false);
 export const sidebarCollapsedStore = persisted<boolean>('clip.side.collapsed', false);
+/** 白板列表里显不显示故障白板 */
+export const faultsStore = persisted<boolean>('clip.faults.show', false);
 /** 当前在哪块白板：只记在本机，不进地址栏 */
 export const boardStore = persisted<string | null>('clip.board.id', null);
 

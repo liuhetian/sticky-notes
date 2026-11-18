@@ -1,6 +1,7 @@
-// 边缘函数只认 JavaScript：把 src/server/edge.ts 连同依赖打成一个文件，放到 /api/ 和 /wiki/ 两个入口（同一个包，按路径分发）
+// 边缘函数只认 JavaScript：把 src/server/edge.ts 连同依赖打成一个文件，放在顶层一个入口 [[default]].js，
+// 接住所有没对上静态文件的路径，函数里按路径分发。首页 build/dist/index.html 也打进包（前端路由回首页用），所以要在 build:web 之后跑
 import { build, type Plugin } from 'esbuild';
-import { copyFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 // `import x from './a.md?raw'` 把文件内容当字符串打进包（和 vite/vitest 的 ?raw 一样）：给 AI 读的文档原文就是这么进函数的
@@ -12,7 +13,9 @@ const raw: Plugin = {
   },
 };
 
-const outfile = 'build/edge-functions/api/[[default]].js';
+// 先清空：edge-functions/ 下留着的每个文件都会被部署成一个入口
+rmSync('build/edge-functions', { recursive: true, force: true });
+const outfile = 'build/edge-functions/[[default]].js';
 const { metafile } = await build({
   metafile: true,
   plugins: [raw],
@@ -33,15 +36,19 @@ const m = code.match(/export\s*\{\s*([\w$]+)\s+as\s+onRequest\s*\};?\s*$/);
 if (!m) throw new Error('打包结果里找不到 onRequest 导出');
 writeFileSync(outfile, code.slice(0, m.index) + `export async function onRequest(context){return ${m[1]}(context)}\n`);
 const kb = statSync(outfile).size / 1024;
-if (kb > 5 * 1024) throw new Error(`边缘函数包 ${kb.toFixed(0)} KB，超过 5 MB 上限`);
-// 包越大冷启动越慢，冷启动超过平台的 CPU 上限就回 545（docs/dev.md「平台的坑」）。
-// zod 写成 import { z } from 'zod' 会整个打进来（400 多 KB），写成 import * as z 只有 100 KB 左右
-const zodKb = Object.entries(metafile.outputs[outfile].inputs)
-  .filter(([path]) => path.includes('node_modules/zod/'))
-  .reduce((sum, [, v]) => sum + v.bytesInOutput, 0) / 1024;
-if (zodKb > 150) throw new Error(`边缘函数包里 zod 占了 ${zodKb.toFixed(0)} KB：zod 要写成 import * as z from 'zod'`);
-// /wiki/ 下有静态文件的路径（页面）平台直接给静态文件，落到函数的只有 .md
-const wikiEntry = 'build/edge-functions/wiki/[[default]].js';
-mkdirSync('build/edge-functions/wiki', { recursive: true });
-copyFileSync(outfile, wikiEntry);
-console.log(`✅ ${outfile}、${wikiEntry}：${kb.toFixed(0)} KB`);
+// 代码越多冷启动越慢，冷启动超过平台的 CPU 上限就回 545（docs/dev.md「平台的坑」）：超预算就别上线，先看是谁变大了。
+// 预算只算代码：?raw 打进来的文字（文档原文、首页）实测不拖累冷启动，不算
+// 常见的是 zod 写成 import { z } from 'zod'，整个命名空间连同几十种语言的报错文案都打进来（400 多 KB）
+const BUDGET_KB = 350;
+const inputs = metafile.outputs[outfile].inputs;
+const textKb = Object.entries(inputs).filter(([path]) => path.startsWith('raw:')).reduce((sum, [, v]) => sum + v.bytesInOutput, 0) / 1024;
+const codeKb = kb - textKb;
+const top = Object.entries(
+  Object.entries(inputs).reduce<Record<string, number>>((sum, [path, v]) => {
+    const key = path.match(/node_modules\/((?:@[^/]+\/)?[^/]+)/)?.[1] ?? (path.startsWith('raw:') ? '打进来的文字（不算预算）' : path.split('/').slice(0, 3).join('/'));
+    sum[key] = (sum[key] ?? 0) + v.bytesInOutput;
+    return sum;
+  }, {}),
+).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => `${k} ${(v / 1024).toFixed(0)} KB`).join('、');
+if (codeKb > BUDGET_KB) throw new Error(`边缘函数包里的代码 ${codeKb.toFixed(0)} KB，超过预算 ${BUDGET_KB} KB。最大的几项：${top}`);
+console.log(`✅ ${outfile}：${kb.toFixed(0)} KB，其中代码 ${codeKb.toFixed(0)} KB（预算 ${BUDGET_KB} KB）。最大的几项：${top}`);

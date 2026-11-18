@@ -1,4 +1,4 @@
-// 侧边栏左下角的设置：新内容默认保留多久、新便利贴的颜色、显不显示小地图、自动同步；都只记在这台设备上。
+// 侧边栏左下角的设置：新内容默认保留多久、新便利贴的颜色、显不显示小地图、自动同步、显不显示故障白板；都只记在这台设备上。
 // 文字说明不放这里，收在旁边的 i 里
 import * as Popover from '@radix-ui/react-popover';
 import * as Switch from '@radix-ui/react-switch';
@@ -6,7 +6,7 @@ import clsx from 'clsx';
 import { COLORS } from '@/shared/constants';
 import { TTL_LABELS } from '../../lib/format';
 import { useMobile } from '../../lib/hooks';
-import { colorStore, minimapStore, syncStore, ttlStore } from '../../state/stores';
+import { colorStore, faultsStore, minimapStore, syncStore, ttlStore } from '../../state/stores';
 import { Icon } from '../../ui/Icon';
 
 export function SettingsButton() {
@@ -14,6 +14,7 @@ export function SettingsButton() {
   const color = colorStore.use();
   const minimap = minimapStore.use();
   const sync = syncStore.use();
+  const faults = faultsStore.use();
   const mobile = useMobile();
   return (
     <Popover.Root>
@@ -43,6 +44,10 @@ export function SettingsButton() {
           <label className="mi switch-row">
             <span>自动同步</span>
             <Switch.Root className="switch" checked={sync} onCheckedChange={syncStore.set}><Switch.Thumb className="switch-thumb" /></Switch.Root>
+          </label>
+          <label className="mi switch-row">
+            <span>显示故障白板</span>
+            <Switch.Root className="switch" checked={faults} onCheckedChange={faultsStore.set}><Switch.Thumb className="switch-thumb" /></Switch.Root>
           </label>
         </Popover.Content>
       </Popover.Portal>
