@@ -72,7 +72,7 @@ export function Sidebar({ boards, current, onSwitch, actions, renaming, setRenam
         </div>
       )}
       <div className={clsx('tab trash-tab', current === TRASH && 'on')} title="废纸篓" onClick={() => onSwitch(TRASH)}>
-        <Icon name="trash" /><span className="tab-name">废纸篓</span>
+        <BoardIcon id={TRASH} name="废纸篓" /><span className="tab-name">废纸篓</span>
       </div>
       <div className="side-foot">
         <SettingsButton />

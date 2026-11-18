@@ -1,5 +1,7 @@
-// 手画的白板图标，按名字认：共用（两个人）、牛牛（奶牛）、香蕉、大米（小熊脑袋）。
+// 手画的白板图标，按名字认：共用（两个人）、牛牛（奶牛）、香蕉、大米（小熊脑袋）；系统白板按 id 认：故障（警示牌）、废纸篓（塞着便利贴的纸篓）。
 // 其余白板画一张写着名字首字的小便利贴，和手画的一样大，名字才对得齐
+import { FAULTS, TRASH } from '@/shared/constants';
+
 const Shared = () => (
   <svg viewBox="0 0 32 32" aria-hidden>
     <circle cx="11.5" cy="11" r="4.6" fill="#7db8f0" />
@@ -57,7 +59,28 @@ const Bear = () => (
   </svg>
 );
 
+const Fault = () => (
+  <svg viewBox="0 0 32 32" aria-hidden>
+    <path d="M14.3 4.6a2 2 0 0 1 3.4 0l11 19a2 2 0 0 1-1.7 3H5a2 2 0 0 1-1.7-3z" fill="#ffb3a7" stroke="#c0473a" strokeWidth="1.4" strokeLinejoin="round" />
+    <path d="M12.8 9.6 9.4 15.5" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" opacity=".6" />
+    <path d="M16 11.4v7.2" stroke="#7a2219" strokeWidth="2.6" strokeLinecap="round" />
+    <circle cx="16" cy="22.4" r="1.5" fill="#7a2219" />
+  </svg>
+);
+
+const Trash = () => (
+  <svg viewBox="0 0 32 32" aria-hidden>
+    <path d="M9.4 11.2 8.4 5.6l3.8-3.2 3.1 1.9 3.8-2.3 3.6 3.1-1 4 1.2 2.1z" fill="#fff2a8" stroke="#d4ae2c" strokeWidth="1.1" strokeLinejoin="round" />
+    <path d="M12.2 2.6 13.8 7l4-1.1 1.2 4.4" fill="none" stroke="#e2bf45" strokeWidth=".9" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M7.6 12.2h16.8l-1.6 14.6a2 2 0 0 1-2 1.8h-9.6a2 2 0 0 1-2-1.8z" fill="#dde4ea" stroke="#5f6b75" strokeWidth="1.3" strokeLinejoin="round" />
+    <path d="M12.4 15.6l.5 9.4M16 15.6v9.4M19.6 15.6l-.5 9.4" stroke="#5f6b75" strokeWidth="1" strokeLinecap="round" opacity=".5" />
+    <rect x="5.8" y="10" width="20.4" height="2.8" rx="1.4" fill="#eef2f5" stroke="#5f6b75" strokeWidth="1.3" />
+  </svg>
+);
+
 const ICONS: Record<string, () => React.JSX.Element> = { 共用: Shared, 牛牛: Cow, 香蕉: Banana, 大米: Bear };
+/** 系统白板不能改名，按 id 认 */
+const SYSTEM: Record<string, () => React.JSX.Element> = { [FAULTS]: Fault, [TRASH]: Trash };
 
 // 便利贴的浅色和深色（styles/base.css 里那几种，白色除外）；按 id 挑，删了别的白板颜色也不变
 const NOTE_COLORS = [
@@ -77,6 +100,6 @@ const Note = ({ ch, color: [bg, edge] }: { ch: string; color: readonly [string, 
 );
 
 export function BoardIcon({ id, name }: { id: string; name: string }) {
-  const Svg = ICONS[name];
+  const Svg = SYSTEM[id] ?? ICONS[name];
   return <span className="board-icon">{Svg ? Svg() : <Note ch={[...name][0] ?? ''} color={colorOf(id)} />}</span>;
 }

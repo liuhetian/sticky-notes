@@ -46,7 +46,7 @@ kbd { margin: 0 2px; padding: 1px 6px; font: 12px/1.4 inherit; border: 1px solid
   .side.collapsed .tab { justify-content: center; padding: 4px; width: 100%; }
   .side.collapsed .tab.on { background: none; box-shadow: none; }
   .side.collapsed .new-board { width: 40px; height: 40px; padding: 0; justify-content: center; }
-  .side.collapsed .trash-tab { width: 44px; justify-content: center; border-top: 0; }
+  .side.collapsed .trash-tab { border-top: 0; }
   .side.collapsed .side-foot { flex-direction: column; }
   .side.collapsed .ib.info, .side.collapsed .ib.logout { display: none; }
 }

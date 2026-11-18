@@ -18,7 +18,7 @@ copy_source: true
 | EdgeOne Makers 项目、COS 子账号 | `clip` |
 | 登录 cookie | `clip_auth` |
 
-**功能和规则以[需求](requirements.md)为准**，别的页面讲到功能都链过去，不转述。目录结构和设计决定写在仓库根的 `README.md`，这里不重复。
+**功能和规则以[需求](requirements.md)为准**，别的页面讲到功能都链过去，不转述。
 
 本站 wiki 在 https://clip.liuhetian.life/wiki/ 。这份文档被别的站点收录后，那边的 `.md` 是原文、不带实时数据；要实时值就带密码读本站的 `/wiki/<页>.md`。
 
