@@ -242,7 +242,11 @@ describe('废纸篓', () => {
   });
   it('最多留 50 个：修剪时把最早进去的彻底删掉，一次删两个', async () => {
     const [a, b] = await t.boardIds();
-    const items = [...(await t.fill(a, 30)), ...(await t.fill(b, 23))];
+    // 修剪只读按 id 排在前面的 BATCH 个，在里面挑最早的（超出时「最早」只是大致准）。id 是随机的，要按 id 排好再定谁最早，
+    // 不然最早的偶尔排在读不到的后几位。最早的三个取读得到的范围里 id 最大的（第 48～50 个），「按 id 顺序删」的写法会被测出来；
+    // 读不到的后三个最晚
+    const byId = [...(await t.fill(a, 30)), ...(await t.fill(b, 23))].sort((x, y) => x.id.localeCompare(y.id));
+    const items = [...byId.slice(BATCH - 3, BATCH).reverse(), ...byId.slice(0, BATCH - 3), ...byId.slice(BATCH)];
     for (const it of items) await t.call('DELETE', `/boards/${it.boardId}/items/${it.id}`);
     // 进废纸篓的时间（expiresAt）挨个错开，第一个最早
     for (const [i, it] of items.entries()) {
